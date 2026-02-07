@@ -64,9 +64,11 @@ function WorkspaceDropdown() {
                                     <p className="text-sm font-medium text-gray-800 dark:text-white truncate line-clamp-1">
                                         {workspace.name}
                                     </p>
-                                    <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
-                                        {workspace.members?.length || 0} members
-                                    </p>
+                                    {user?.role === "ADMIN" && (
+                                        <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
+                                            {workspace.members?.length || 0} members
+                                        </p>
+                                    )}
                                 </div>
                                 {currentWorkspace?.id === workspace.id && (
                                     <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />

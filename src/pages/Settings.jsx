@@ -263,19 +263,19 @@ export default function Settings() {
                                 ) : (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                         <div>
-                                            <div className="text-zinc-500">User IP Address</div>
+                                            <div className="text-zinc-500">Your IP Address</div>
                                             <div className="text-zinc-900 dark:text-zinc-200">{clientInfo?.ip || "Unknown"}</div>
                                         </div>
                                         <div>
-                                            <div className="text-zinc-500">ISP</div>
+                                            <div className="text-zinc-500">Internet Service Provider - ISP</div>
                                             <div className="text-zinc-900 dark:text-zinc-200">{clientInfo?.isp || "Unknown"}</div>
                                         </div>
                                         <div>
-                                            <div className="text-zinc-500">IP-based Location</div>
+                                            <div className="text-zinc-500">Location</div>
                                             <div className="text-zinc-900 dark:text-zinc-200">{clientInfo?.location || "Unknown"}</div>
                                         </div>
                                         <div>
-                                            <div className="text-zinc-500">Current Date Time</div>
+                                            <div className="text-zinc-500">Date Time</div>
                                             <div className="text-zinc-900 dark:text-zinc-200">{currentTime.toLocaleString()}</div>
                                         </div>
                                         <div>

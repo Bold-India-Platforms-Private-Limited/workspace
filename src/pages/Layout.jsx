@@ -5,7 +5,6 @@ import { Outlet } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchWorkspaces } from '../features/workspaceSlice'
 import { loadTheme } from '../features/themeSlice'
-import { Loader2Icon } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { toast } from 'react-hot-toast'
 import CreateWorkspaceDialog from '../components/CreateWorkspaceDialog'
@@ -18,11 +17,39 @@ const Layout = () => {
     const [formData, setFormData] = useState({ email: "", password: "" })
     const [isLoggingIn, setIsLoggingIn] = useState(false)
     const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false)
+    const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0)
+
+    const quotes = [
+        { text: "Take a long breath... you've got this! 💪", emoji: "❤️" },
+        { text: "Every great project starts here ✨", emoji: "⭐" },
+        { text: "Stay focused, you're doing amazing!", emoji: "🎯" },
+        { text: "Your success is just a moment away ⏳", emoji: "✨" },
+        { text: "Breathe in... exhale... relax 🧘", emoji: "🌿" },
+        { text: "You're stronger than you think 💪", emoji: "🔥" },
+        { text: "Keep pushing, the best is coming!", emoji: "🚀" },
+        { text: "Believe in yourself, you've got it! 💫", emoji: "🌟" },
+        { text: "Take a deep breath and smile 😊", emoji: "🎉" },
+        { text: "Loading greatness... just for you!", emoji: "👑" },
+        { text: "Your workspace is almost ready 🎪", emoji: "🎨" },
+        { text: "Motivation: ON ✓ Confidence: HIGH 📈", emoji: "💯" },
+        { text: "Embrace the moment - you've got this!", emoji: "🦾" },
+        { text: "Every second counts - stay patient 🏆", emoji: "⏱️" },
+        { text: "Dream big, work smart, stay humble 🌈", emoji: "💎" },
+        { text: "Power up! Your projects await ⚡", emoji: "🔋" },
+    ]
 
     // Initial load of theme
     useEffect(() => {
         dispatch(loadTheme())
     }, [])
+
+    // Quote rotation
+    useEffect(() => {
+        const quoteInterval = setInterval(() => {
+            setCurrentQuoteIndex((prev) => (prev + 1) % quotes.length)
+        }, 1500)
+        return () => clearInterval(quoteInterval)
+    }, [quotes.length])
 
     // Initial load of workspaces
     useEffect(() => {
@@ -82,8 +109,33 @@ const Layout = () => {
     }
 
     if (loading) return (
-        <div className='flex items-center justify-center h-screen bg-white dark:bg-zinc-950'>
-            <Loader2Icon className="size-7 text-blue-500 animate-spin" />
+        <div className='flex items-center justify-center h-screen bg-gradient-to-br from-white dark:from-zinc-950 via-blue-50/50 dark:via-zinc-900/50 to-white dark:to-zinc-950'>
+            <div className='flex flex-col items-center justify-center gap-8 max-w-md'>
+                {/* Animated circles loader */}
+                <div className='relative w-20 h-20'>
+                    <div className='absolute inset-0 rounded-full border-4 border-blue-200 dark:border-zinc-800' />
+                    <div className='absolute inset-0 rounded-full border-4 border-transparent border-t-blue-500 dark:border-t-blue-400 animate-spin' />
+                    <div className='absolute inset-2 rounded-full border-2 border-blue-100 dark:border-zinc-800 animate-pulse' />
+                </div>
+
+                {/* Quote section */}
+                <div className='text-center space-y-3'>
+                    <div className='text-4xl'>{quotes[currentQuoteIndex].emoji}</div>
+                    <p className='text-lg font-semibold text-zinc-800 dark:text-zinc-100 leading-relaxed'>
+                        {quotes[currentQuoteIndex].text}
+                    </p>
+                </div>
+
+                {/* Loading progress indicator */}
+                <div className='w-full space-y-2'>
+                    <div className='h-1 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden'>
+                        <div className='h-full bg-gradient-to-r from-blue-400 via-blue-500 to-purple-500 rounded-full animate-pulse' />
+                    </div>
+                    <p className='text-xs text-zinc-500 dark:text-zinc-400 text-center'>
+                        Loading your workspace...
+                    </p>
+                </div>
+            </div>
         </div>
     )
 

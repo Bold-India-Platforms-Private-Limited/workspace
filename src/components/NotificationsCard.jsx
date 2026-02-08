@@ -46,7 +46,14 @@ const NotificationsCard = () => {
             </div>
             <div className="p-4 space-y-3">
                 {loading ? (
-                    <div className="text-sm text-zinc-500">Loading...</div>
+                    <>
+                        {Array.from({ length: 2 }).map((_, idx) => (
+                            <div key={idx} className="p-3 rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 animate-pulse">
+                                <div className="h-4 w-40 bg-zinc-200 dark:bg-zinc-800 rounded mb-2" />
+                                <div className="h-3 w-24 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                            </div>
+                        ))}
+                    </>
                 ) : visibleNotifications.length === 0 ? (
                     <div className="text-sm text-zinc-500 dark:text-zinc-400">No notifications</div>
                 ) : (

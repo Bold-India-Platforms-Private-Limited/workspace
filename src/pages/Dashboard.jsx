@@ -43,6 +43,7 @@ const Dashboard = () => {
                     <TasksSummary />
                 </div>
             </div>
+         <div className="text-sm text-zinc-200 dark:text-zinc-400">Keep Workspace Active while you working</div>
         </div>
     )
 }

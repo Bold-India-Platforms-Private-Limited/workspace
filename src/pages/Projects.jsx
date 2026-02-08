@@ -128,10 +128,10 @@ export default function Projects() {
                             <FolderOpen className="w-12 h-12 text-gray-400 dark:text-zinc-500" />
                         </div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                            No projects found
+                            No projects allocated to you yet
                         </h3>
                         <p className="text-gray-500 dark:text-zinc-400 mb-6 text-sm">
-                            Create your first project to get started
+                            Your Project Mangager will assign you to projects.
                         </p>
                         {user?.role === "ADMIN" && (
                             <button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mx-auto text-sm" >

@@ -61,7 +61,7 @@ const ProjectOverview = () => {
                         <div className="w-16 h-16 mx-auto mb-4 bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-500 rounded-full flex items-center justify-center">
                             <FolderOpen size={32} />
                         </div>
-                        <p className="text-zinc-600 dark:text-zinc-400">No projects yet</p>
+                        <p className="text-zinc-600 dark:text-zinc-400"> No projects allocated yet</p>
                         {user?.role === "ADMIN" && (
                             <>
                                 <button onClick={() => setIsDialogOpen(true)} className="mt-4 px-4 py-2 text-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white dark:text-zinc-200 rounded hover:opacity-90 transition">

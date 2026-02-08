@@ -195,7 +195,8 @@ const Groups = () => {
                             ))}
                         </div>
                     ) : visibleGroups.length === 0 ? (
-                        <div className="text-zinc-500 dark:text-zinc-400">No groups found.</div>
+                        <div className="text-zinc-500 dark:text-zinc-400">No groups found; Your Project Manager will create shortly.</div>
+                        
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {pagedGroups.map((group) => (

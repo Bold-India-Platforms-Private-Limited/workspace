@@ -1,0 +1,55 @@
+# ===============================
+# Dependencies
+# ===============================
+node_modules/
+.pnp
+.pnp.js
+
+# ===============================
+# Next.js
+# ===============================
+.next/
+out/
+build/
+
+# ===============================
+# Environment variables (VERY IMPORTANT)
+# ===============================
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Allow example env
+!.env.example
+
+# ===============================
+# Logs
+# ===============================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# ===============================
+# OS / Editor junk
+# ===============================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ===============================
+# Testing
+# ===============================
+coverage/
+.nyc_output/
+
+# ===============================
+# Misc
+# ===============================
+*.log
+*.tmp
+.cache/

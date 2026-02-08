@@ -9,6 +9,7 @@ import TaskDetails from './pages/TaskDetails'
 import Settings from './pages/Settings'
 import Groups from './pages/Groups'
 import Attendance from './pages/Attendance'
+import EmailMonitor from './pages/EmailMonitor'
 
 const App = () => {
     return (
@@ -21,6 +22,7 @@ const App = () => {
                     <Route path="projects" element={<Projects />} />
                     <Route path="groups" element={<Groups />} />
                     <Route path="attendance" element={<Attendance />} />
+                    <Route path="email-monitor" element={<EmailMonitor />} />
                     <Route path="projectsDetail" element={<ProjectDetails />} />
                     <Route path='taskDetails' element={<TaskDetails/>} />
                     <Route path='settings' element={<Settings/>} />

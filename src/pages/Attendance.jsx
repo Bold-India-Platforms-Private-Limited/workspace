@@ -31,8 +31,9 @@ const Attendance = () => {
     const [adminRecords, setAdminRecords] = useState([]);
     const [cameraError, setCameraError] = useState("");
     const [adminQuery, setAdminQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
+    const [statusFilter, setStatusFilter] = useState("marked");
     const [adminPage, setAdminPage] = useState(1);
+    const [selectedPhoto, setSelectedPhoto] = useState(null);
     const [deleteStartDate, setDeleteStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
     const [deleteEndDate, setDeleteEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
     const [calendarMonth, setCalendarMonth] = useState(new Date());
@@ -196,13 +197,19 @@ const Attendance = () => {
 
     const filteredAdminRecords = useMemo(() => {
         const term = adminQuery.trim().toLowerCase();
-        return (adminRecords || []).filter((record) => {
+        const filtered = (adminRecords || []).filter((record) => {
             const name = record.user?.name?.toLowerCase() || "";
             const email = record.user?.email?.toLowerCase() || "";
             const matchesSearch = !term || name.includes(term) || email.includes(term);
             const isMarked = Boolean(record.attendance);
             const matchesStatus = statusFilter === "all" || (statusFilter === "marked" && isMarked) || (statusFilter === "missing" && !isMarked);
             return matchesSearch && matchesStatus;
+        });
+        
+        return filtered.sort((a, b) => {
+            const dateA = a.attendance?.createdAt ? new Date(a.attendance.createdAt).getTime() : 0;
+            const dateB = b.attendance?.createdAt ? new Date(b.attendance.createdAt).getTime() : 0;
+            return dateB - dateA; // Latest first
         });
     }, [adminRecords, adminQuery, statusFilter]);
 
@@ -384,7 +391,19 @@ const Attendance = () => {
                                         </div>
                                         <div className="w-full sm:w-28">
                                             {record.attendance?.imageUrl ? (
-                                                <img src={record.attendance.imageUrl} alt="attendance" className="w-full h-20 object-cover rounded border border-zinc-200 dark:border-zinc-800" />
+                                                <div className="cursor-pointer group">
+                                                    <img 
+                                                        src={record.attendance.imageUrl} 
+                                                        alt="attendance" 
+                                                        className="w-full h-20 object-cover rounded border border-zinc-200 dark:border-zinc-800 group-hover:opacity-75 transition-opacity"
+                                                        onClick={() => setSelectedPhoto(record.attendance)}
+                                                    />
+                                                    {record.attendance.createdAt && (
+                                                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">
+                                                            {format(new Date(record.attendance.createdAt), "MMM dd, yyyy HH:mm")}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <div className="w-full h-20 flex items-center justify-center rounded border border-dashed border-zinc-300 dark:border-zinc-700 text-xs text-zinc-500">
                                                     No photo
@@ -552,13 +571,61 @@ const Attendance = () => {
                             <div className="mt-4">
                                 <div className="text-xs text-zinc-500 mb-2">Today’s Photo</div>
                                 {todayAttendance?.imageUrl ? (
-                                    <img src={todayAttendance.imageUrl} alt="today" className="w-full rounded border border-zinc-200 dark:border-zinc-800" />
+                                    <div className="cursor-pointer group">
+                                        <img 
+                                            src={todayAttendance.imageUrl} 
+                                            alt="today" 
+                                            className="w-full rounded border border-zinc-200 dark:border-zinc-800 group-hover:opacity-75 transition-opacity"
+                                            onClick={() => setSelectedPhoto(todayAttendance)}
+                                        />
+                                        {todayAttendance.createdAt && (
+                                            <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                                                {format(new Date(todayAttendance.createdAt), "HH:mm:ss")}
+                                            </div>
+                                        )}
+                                    </div>
                                 ) : (
                                     <div className="w-full h-32 rounded border border-dashed border-zinc-300 dark:border-zinc-700 text-xs text-zinc-500 flex items-center justify-center">
                                         No photo yet
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* Fullscreen Photo Modal */}
+            {selectedPhoto && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+                    onClick={() => setSelectedPhoto(null)}
+                >
+                    <div 
+                        className="relative max-w-4xl max-h-[90vh] w-full h-full flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+                            <div>
+                                {selectedPhoto.createdAt && (
+                                    <div className="text-white text-sm">
+                                        {format(new Date(selectedPhoto.createdAt), "EEEE, MMMM dd, yyyy HH:mm:ss")}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setSelectedPhoto(null)}
+                                className="text-white text-2xl hover:text-gray-300 transition-colors"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="flex-1 flex items-center justify-center overflow-auto">
+                            <img 
+                                src={selectedPhoto.imageUrl} 
+                                alt="fullscreen attendance"
+                                className="max-w-full max-h-full object-contain"
+                            />
                         </div>
                     </div>
                 </div>

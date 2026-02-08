@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../configs/api";
 import { useSelector } from "react-redux";
-import { ArrowLeft, UsersIcon, MessageCircle } from "lucide-react";
+import { ArrowLeft, UsersIcon, MessageCircle, Trash2 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import toast from "react-hot-toast";
 
 const PAGE_SIZE = 20;
 
@@ -15,7 +16,10 @@ const Groups = () => {
     const [page, setPage] = useState(1);
     const [memberPage, setMemberPage] = useState(1);
     const [isEditOpen, setIsEditOpen] = useState(false);
+    const [memberFilter, setMemberFilter] = useState("ALL");
     const [selectedIds, setSelectedIds] = useState(new Set());
+    const [selectedGroupsForDelete, setSelectedGroupsForDelete] = useState(new Set());
+    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState("");
     const [showMembers, setShowMembers] = useState(false);
@@ -63,15 +67,36 @@ const Groups = () => {
 
     // Moved this declaration BEFORE it's used
     const allWorkspaceMembers = currentWorkspace?.members || [];
+    const userGroupsMap = useMemo(() => {
+        const map = {};
+        (groups || []).forEach((g) => {
+            (g.members || []).forEach((m) => {
+                if (!map[m.userId]) map[m.userId] = [];
+                map[m.userId].push({ id: g.id, name: g.name });
+            });
+        });
+        return map;
+    }, [groups]);
     const activeGroupMembers = useMemo(() => {
         if (!groupMembers.length) return [];
         const workspaceIds = new Set(allWorkspaceMembers.map((m) => m.userId));
         return groupMembers.filter((member) => workspaceIds.has(member.userId));
     }, [groupMembers, allWorkspaceMembers]);
+    const workspaceFilteredMembers = useMemo(() => {
+        if (!allWorkspaceMembers) return [];
+        return allWorkspaceMembers.filter((member) => {
+            const uGroups = userGroupsMap[member.userId] || [];
+            if (memberFilter === "NOT_IN_ANY") return uGroups.length === 0;
+            if (memberFilter === "IN_CURRENT") return selectedGroup && uGroups.some((g) => g.id === selectedGroup.id);
+            if (memberFilter === "IN_OTHER") return uGroups.length > 0 && !(selectedGroup && uGroups.some((g) => g.id === selectedGroup.id));
+            return true;
+        });
+    }, [allWorkspaceMembers, userGroupsMap, memberFilter, selectedGroup]);
+
     const pagedWorkspaceMembers = useMemo(() => {
         const start = (memberPage - 1) * PAGE_SIZE;
-        return allWorkspaceMembers.slice(start, start + PAGE_SIZE);
-    }, [allWorkspaceMembers, memberPage]);
+        return workspaceFilteredMembers.slice(start, start + PAGE_SIZE);
+    }, [workspaceFilteredMembers, memberPage]);
     const totalWorkspacePages = Math.ceil(allWorkspaceMembers.length / PAGE_SIZE) || 1;
 
     const handleToggle = (userId) => {
@@ -138,6 +163,48 @@ const Groups = () => {
         fetchGroups();
     };
 
+    const toggleGroupSelectForDelete = (groupId) => {
+        setSelectedGroupsForDelete((prev) => {
+            const next = new Set(prev);
+            if (next.has(groupId)) next.delete(groupId);
+            else next.add(groupId);
+            return next;
+        });
+    };
+
+    const toggleSelectAllGroupsForDelete = () => {
+        setSelectedGroupsForDelete((prev) => {
+            const next = new Set(prev);
+            const groupIds = pagedGroups.map((g) => g.id);
+            const allSelected = groupIds.every((id) => next.has(id));
+            groupIds.forEach((id) => {
+                if (allSelected) next.delete(id);
+                else next.add(id);
+            });
+            return next;
+        });
+    };
+
+    const handleBulkDeleteGroups = async () => {
+        try {
+            const groupIds = Array.from(selectedGroupsForDelete);
+            const confirmMsg = `Delete ${groupIds.length} group(s)? This removes all members and chats from these groups.`;
+            const confirm = window.confirm(confirmMsg);
+            if (!confirm) return;
+            
+            for (const groupId of groupIds) {
+                await api.delete(`/api/groups/${groupId}`, { headers: { Authorization: `Bearer ${await getToken()}` } });
+            }
+            
+            toast.success(`Deleted ${groupIds.length} group(s) successfully!`);
+            setSelectedGroupsForDelete(new Set());
+            setIsBulkDeleteModalOpen(false);
+            fetchGroups();
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        }
+    };
+
     const sendMessage = async () => {
         if (!newMessage.trim()) return;
         const { data } = await api.post(
@@ -178,6 +245,15 @@ const Groups = () => {
                         <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
                             {user?.role === "ADMIN" ? "Groups" : "Team Group"}
                         </h1>
+                        {user?.role === "ADMIN" && selectedGroupsForDelete.size > 0 && (
+                            <button 
+                                onClick={() => setIsBulkDeleteModalOpen(true)}
+                                className="flex items-center gap-2 px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm transition"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Delete ({selectedGroupsForDelete.size})
+                            </button>
+                        )}
                     </div>
 
                     {isLoading ? (
@@ -198,22 +274,55 @@ const Groups = () => {
                         <div className="text-zinc-500 dark:text-zinc-400">No groups found; Your Project Manager will create shortly.</div>
                         
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {pagedGroups.map((group) => (
-                                <button
-                                    key={group.id}
-                                    onClick={() => { setSelectedGroup(group); setMemberPage(1); }}
-                                    className="text-left bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 hover:border-zinc-300 dark:hover:border-zinc-700"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <h3 className="font-semibold text-zinc-900 dark:text-white">{group.name}</h3>
-                                            <p className="text-xs text-zinc-500 dark:text-zinc-400">{group.members?.length || 0} members</p>
+                        <div>
+                            {user?.role === "ADMIN" && visibleGroups.length > 0 && (
+                                <div className="mb-4 flex items-center gap-2 p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={pagedGroups.length > 0 && pagedGroups.every((g) => selectedGroupsForDelete.has(g.id))}
+                                        onChange={toggleSelectAllGroupsForDelete}
+                                        className="cursor-pointer"
+                                    />
+                                    <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                                        {pagedGroups.length > 0 && pagedGroups.every((g) => selectedGroupsForDelete.has(g.id)) 
+                                            ? "Deselect all on this page" 
+                                            : "Select all on this page"}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {pagedGroups.map((group) => (
+                                    <div
+                                        key={group.id}
+                                        className={`text-left border rounded-lg p-4 transition ${
+                                            selectedGroupsForDelete.has(group.id)
+                                                ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700"
+                                                : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+                                        } hover:border-zinc-300 dark:hover:border-zinc-700`}
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex-1 flex items-center gap-3">
+                                                {user?.role === "ADMIN" && (
+                                                    <input 
+                                                        type="checkbox"
+                                                        checked={selectedGroupsForDelete.has(group.id)}
+                                                        onChange={() => toggleGroupSelectForDelete(group.id)}
+                                                        className="cursor-pointer"
+                                                    />
+                                                )}
+                                                <button
+                                                    onClick={() => { setSelectedGroup(group); setMemberPage(1); }}
+                                                    className="flex-1 text-left"
+                                                >
+                                                    <h3 className="font-semibold text-zinc-900 dark:text-white">{group.name}</h3>
+                                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{group.members?.length || 0} members</p>
+                                                </button>
+                                            </div>
+                                            <UsersIcon className="size-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
                                         </div>
-                                        <UsersIcon className="size-4 text-zinc-500 dark:text-zinc-400" />
                                     </div>
-                                </button>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     )}
 
@@ -229,9 +338,23 @@ const Groups = () => {
                 <div className="flex flex-col gap-4 h-[calc(100vh-140px)] overflow-hidden lg:h-auto lg:overflow-visible">
                     <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                            <button onClick={() => setSelectedGroup(null)} className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
-                                <ArrowLeft className="size-4" /> Back
-                            </button>
+                            <button
+  onClick={() => setSelectedGroup(null)}
+  aria-label="Go back"
+  className="
+    flex items-center justify-center
+    h-10 w-10
+    rounded-full
+    active:scale-95
+    transition-all
+    text-gray-700 dark:text-gray-200
+    hover:bg-gray-100 dark:hover:bg-gray-800
+    active:bg-gray-200 dark:active:bg-gray-700
+    focus:outline-none focus:ring-2 focus:ring-blue-500
+  "
+>
+  <ArrowLeft className="h-5 w-5" />
+</button>
                             <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
                                 <span className="sm:hidden">{shortText(selectedGroup.name)}</span>
                                 <span className="hidden sm:inline">{selectedGroup.name}</span>
@@ -338,6 +461,16 @@ const Groups = () => {
                                 </div>
                             </div>
                             <div className="p-4 sm:p-6">
+                                <div className="flex items-center justify-between mb-3 gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => { setMemberFilter("ALL"); setMemberPage(1); }} className={`px-3 py-1 text-sm rounded ${memberFilter==="ALL"?"bg-zinc-100 dark:bg-zinc-900":"border"}`}>All</button>
+                                        <button onClick={() => { setMemberFilter("NOT_IN_ANY"); setMemberPage(1); }} className={`px-3 py-1 text-sm rounded ${memberFilter==="NOT_IN_ANY"?"bg-zinc-100 dark:bg-zinc-900":"border"}`}>Not in any group</button>
+                                        <button onClick={() => { setMemberFilter("IN_CURRENT"); setMemberPage(1); }} className={`px-3 py-1 text-sm rounded ${memberFilter==="IN_CURRENT"?"bg-zinc-100 dark:bg-zinc-900":"border"}`}>In this group</button>
+                                        <button onClick={() => { setMemberFilter("IN_OTHER"); setMemberPage(1); }} className={`px-3 py-1 text-sm rounded ${memberFilter==="IN_OTHER"?"bg-zinc-100 dark:bg-zinc-900":"border"}`}>In other groups</button>
+                                    </div>
+                                    <div className="text-xs text-zinc-500">Showing {workspaceFilteredMembers.length} members</div>
+                                </div>
+
                                 <div className="overflow-x-auto rounded-md border border-gray-200 dark:border-zinc-800">
                                     <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
                                         <thead className="bg-gray-50 dark:bg-zinc-900/50">
@@ -345,6 +478,7 @@ const Groups = () => {
                                                 <th className="px-3 sm:px-4 py-2.5 text-left text-xs sm:text-sm"><input type="checkbox" onChange={handleSelectPage} checked={pagedWorkspaceMembers.length > 0 && pagedWorkspaceMembers.every((m) => selectedIds.has(m.userId))} /></th>
                                                 <th className="px-3 sm:px-6 py-2.5 text-left font-medium text-xs sm:text-sm">Name</th>
                                                 <th className="px-3 sm:px-6 py-2.5 text-left font-medium text-xs sm:text-sm">Email</th>
+                                                <th className="px-3 sm:px-6 py-2.5 text-left font-medium text-xs sm:text-sm">Groups</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200 dark:divide-zinc-800">
@@ -359,6 +493,17 @@ const Groups = () => {
                                                         <span className="sm:hidden">{shortText(member.user?.email || "")}</span>
                                                         <span className="hidden sm:inline">{member.user?.email}</span>
                                                     </td>
+                                                    <td className="px-3 sm:px-6 py-2.5 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                                                        {(() => {
+                                                            const ug = userGroupsMap[member.userId] || [];
+                                                            if (ug.length === 0) return <span className="text-xs text-zinc-400">—</span>;
+                                                            return ug.map((g) => (
+                                                                <span key={g.id} className={`inline-block text-xs mr-2 px-2 py-0.5 rounded ${selectedGroup && g.id===selectedGroup.id ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30' : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800'}`}>
+                                                                    {g.name}{selectedGroup && g.id===selectedGroup.id ? ' (current)' : ''}
+                                                                </span>
+                                                            ));
+                                                        })()}
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -372,6 +517,49 @@ const Groups = () => {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Bulk Delete Modal */}
+            {isBulkDeleteModalOpen && (
+                <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-zinc-950 rounded-lg max-w-md w-full p-6 space-y-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Delete Groups</h3>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
+                                Are you sure you want to delete {selectedGroupsForDelete.size} group(s)? This action cannot be undone.
+                            </p>
+                        </div>
+
+                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3">
+                            <div className="text-sm font-medium text-red-900 dark:text-red-200 mb-2">Groups to delete:</div>
+                            <div className="space-y-1 max-h-32 overflow-y-auto">
+                                {pagedGroups
+                                    .filter((g) => selectedGroupsForDelete.has(g.id))
+                                    .map((group) => (
+                                        <div key={group.id} className="text-sm text-red-800 dark:text-red-300 flex items-center gap-2">
+                                            <span className="text-red-600 dark:text-red-400">•</span>
+                                            {group.name} ({group.members?.length || 0} members)
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 justify-end pt-2">
+                            <button
+                                onClick={() => setIsBulkDeleteModalOpen(false)}
+                                className="px-4 py-2 rounded border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBulkDeleteGroups}
+                                className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white transition"
+                            >
+                                Delete Groups
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

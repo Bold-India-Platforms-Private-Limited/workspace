@@ -54,11 +54,32 @@ const ProjectTasks = ({ tasks, groups }) => {
         return tasks.filter((task) => task.groups?.some((tg) => userGroupIds.has(tg.groupId || tg.group?.id)));
     }, [tasks, user, userGroupIds]);
 
+    const isMember = user?.role !== "ADMIN";
+
+    const filterTaskGroups = (taskGroups) => {
+        if (!isMember) return taskGroups || [];
+        return (taskGroups || []).filter((g) => userGroupIds.has(g.groupId || g.group?.id));
+    };
+
+    const userGroupMemberIds = useMemo(() => {
+        if (!isMember || !currentWorkspace) return null;
+        const ids = new Set();
+        (currentWorkspace.groups || [])
+            .filter((group) => userGroupIds.has(group.id))
+            .forEach((group) => (group.members || []).forEach((m) => ids.add(m.userId)));
+        return ids;
+    }, [isMember, currentWorkspace, userGroupIds]);
+
+    const filterAssignees = (assignees) => {
+        if (!isMember || !userGroupMemberIds) return assignees || [];
+        return (assignees || []).filter((a) => userGroupMemberIds.has(a.userId));
+    };
+
     const groupList = useMemo(
         () => Array.from(new Set(
-            visibleTasks.flatMap((t) => t.groups?.map((g) => g.group?.name).filter(Boolean) || [])
+            visibleTasks.flatMap((t) => filterTaskGroups(t.groups).map((g) => g.group?.name).filter(Boolean))
         )),
-        [visibleTasks]
+        [visibleTasks, isMember, userGroupIds]
     );
 
     const filteredTasks = useMemo(() => {
@@ -277,26 +298,29 @@ const ProjectTasks = ({ tasks, groups }) => {
                                                     </select>
                                                 </td>
                                                 <td className="px-4 py-2">
-                                                    {(task.groups || []).length > 0 ? (
-                                                        <div className="flex flex-wrap gap-1 items-center">
-                                                            {task.groups.slice(0, 2).map((g) => (
-                                                                <span key={g.id || g.group?.id} className="text-[10px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700">
-                                                                    {g.group?.name}
-                                                                </span>
-                                                            ))}
-                                                            {task.groups.length > 2 && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={(e) => { e.stopPropagation(); setOpenGroupsTaskId(task.id); }}
-                                                                    className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
-                                                                >
-                                                                    +{task.groups.length - 2} more
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <span>-</span>
-                                                    )}
+                                                    {(() => {
+                                                        const displayGroups = filterTaskGroups(task.groups);
+                                                        return displayGroups.length > 0 ? (
+                                                            <div className="flex flex-wrap gap-1 items-center">
+                                                                {displayGroups.slice(0, 2).map((g) => (
+                                                                    <span key={g.id || g.group?.id} className="text-[10px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700">
+                                                                        {g.group?.name}
+                                                                    </span>
+                                                                ))}
+                                                                {displayGroups.length > 2 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => { e.stopPropagation(); setOpenGroupsTaskId(task.id); }}
+                                                                        className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
+                                                                    >
+                                                                        +{displayGroups.length - 2} more
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span>-</span>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
                                                     <button
@@ -379,26 +403,29 @@ const ProjectTasks = ({ tasks, groups }) => {
                                         </div>
 
                                         <div className="flex flex-wrap gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                                            {(task.groups || []).length > 0 ? (
-                                                <>
-                                                    {task.groups.slice(0, 2).map((g) => (
-                                                        <span key={g.id || g.group?.id} className="text-xs px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700">
-                                                            {g.group?.name}
-                                                        </span>
-                                                    ))}
-                                                    {task.groups.length > 2 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => { e.stopPropagation(); setOpenGroupsTaskId(task.id); }}
-                                                            className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
-                                                        >
-                                                            +{task.groups.length - 2} more
-                                                        </button>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <span>-</span>
-                                            )}
+                                            {(() => {
+                                                const displayGroups = filterTaskGroups(task.groups);
+                                                return displayGroups.length > 0 ? (
+                                                    <>
+                                                        {displayGroups.slice(0, 2).map((g) => (
+                                                            <span key={g.id || g.group?.id} className="text-xs px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700">
+                                                                {g.group?.name}
+                                                            </span>
+                                                        ))}
+                                                        {displayGroups.length > 2 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => { e.stopPropagation(); setOpenGroupsTaskId(task.id); }}
+                                                                className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
+                                                            >
+                                                                +{displayGroups.length - 2} more
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span>-</span>
+                                                );
+                                            })()}
                                         </div>
 
                                         <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
@@ -429,13 +456,13 @@ const ProjectTasks = ({ tasks, groups }) => {
 
             {openGroupsTaskId && (
                 <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur flex items-center justify-center" onClick={() => setOpenGroupsTaskId(null)}>
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-3">
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 max-w-md w-full min-h-[200px]" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">All Groups</h3>
                             <button onClick={() => setOpenGroupsTaskId(null)} className="text-xs text-zinc-500">Close</button>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                            {(tasks.find((t) => t.id === openGroupsTaskId)?.groups || []).map((g) => (
+                        <div className="flex flex-wrap gap-2 max-h-80 overflow-y-auto">
+                            {filterTaskGroups(tasks.find((t) => t.id === openGroupsTaskId)?.groups).map((g) => (
                                 <span key={g.id || g.group?.id} className="text-xs px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700">
                                     {g.group?.name}
                                 </span>
@@ -447,22 +474,25 @@ const ProjectTasks = ({ tasks, groups }) => {
 
             {openAssigneesTaskId && (
                 <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur flex items-center justify-center" onClick={() => setOpenAssigneesTaskId(null)}>
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-3">
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 max-w-md w-full min-h-[200px]" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Assignees</h3>
                             <button onClick={() => setOpenAssigneesTaskId(null)} className="text-xs text-zinc-500">Close</button>
                         </div>
-                        <div className="flex flex-col gap-2">
-                            {((tasks.find((t) => t.id === openAssigneesTaskId)?.assignees) || []).length > 0 ? (
-                                (tasks.find((t) => t.id === openAssigneesTaskId)?.assignees || []).map((a) => (
-                                    <div key={a.id} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                                        <span>{a.user?.name || a.user?.email}</span>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="text-xs text-zinc-500">Unassigned</div>
-                            )}
+                        <div className="flex flex-col gap-2 max-h-80 overflow-y-auto">
+                            {(() => {
+                                const displayAssignees = filterAssignees(tasks.find((t) => t.id === openAssigneesTaskId)?.assignees);
+                                return displayAssignees.length > 0 ? (
+                                    displayAssignees.map((a) => (
+                                        <div key={a.id} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                            <span>{a.user?.name || a.user?.email}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-xs text-zinc-500">Unassigned</div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

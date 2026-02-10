@@ -33,11 +33,18 @@ export default function ProjectDetail() {
                 .map((group) => group.id)
         );
     }, [currentWorkspace, user]);
-    const groupMemberCount = (project?.groups || []).reduce((acc, g) => {
-        const members = g.group?.members || [];
-        members.forEach((m) => acc.add(m.userId));
-        return acc;
-    }, new Set()).size;
+    const groupMemberCount = useMemo(() => {
+        const isAdmin = user?.role === "ADMIN";
+        const groups = project?.groups || [];
+        const relevantGroups = isAdmin
+            ? groups
+            : groups.filter((g) => userGroupIds.has(g.groupId || g.group?.id));
+        return relevantGroups.reduce((acc, g) => {
+            const members = g.group?.members || [];
+            members.forEach((m) => acc.add(m.userId));
+            return acc;
+        }, new Set()).size;
+    }, [project, user, userGroupIds]);
 
     useEffect(() => {
         if (tab) setActiveTab(tab);

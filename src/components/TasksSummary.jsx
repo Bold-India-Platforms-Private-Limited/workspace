@@ -19,6 +19,8 @@ export default function TasksSummary() {
         }
     }, [currentWorkspace]);
 
+    const isMember = user?.role !== "ADMIN";
+
     const userGroupIds = new Set(
         (currentWorkspace?.groups || [])
             .filter((group) => group.members?.some((m) => m.userId === user?.id))
@@ -27,8 +29,9 @@ export default function TasksSummary() {
     const myTasks = tasks.filter((task) =>
         task.groups?.some((tg) => userGroupIds.has(tg.groupId || tg.group?.id))
     );
-    const overdueTasks = tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'DONE');
-    const inProgressIssues = tasks.filter(i => i.status === 'IN_PROGRESS');
+    const visibleTasks = isMember ? myTasks : tasks;
+    const overdueTasks = visibleTasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'DONE');
+    const inProgressIssues = visibleTasks.filter(i => i.status === 'IN_PROGRESS');
 
     const summaryCards = [
         {

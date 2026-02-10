@@ -38,7 +38,7 @@ const Attendance = () => {
     const [deleteEndDate, setDeleteEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
     const [calendarMonth, setCalendarMonth] = useState(new Date());
 
-    const ADMIN_PAGE_SIZE = 5;
+    const ADMIN_PAGE_SIZE = 100;
 
     const monthDays = useMemo(() => {
         const start = startOfMonth(calendarMonth);
@@ -369,13 +369,29 @@ const Attendance = () => {
                     </div>
 
                     <div className="bg-white dark:bg-zinc-950 dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
-                        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 text-sm font-medium">Attendance Records</div>
+                        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm font-medium">Attendance Records</span>
+                            <div className="flex items-center gap-3 text-xs">
+                                <span className="px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">
+                                    Marked: {adminRecords.filter((r) => r.attendance).length}
+                                </span>
+                                <span className="px-2 py-1 rounded bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
+                                    Missing: {adminRecords.filter((r) => !r.attendance).length}
+                                </span>
+                                <span className="px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
+                                    Total: {adminRecords.length}
+                                </span>
+                            </div>
+                        </div>
                         <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
                             {pagedAdminRecords.length === 0 ? (
                                 <div className="p-6 text-sm text-zinc-500">No records found.</div>
                             ) : (
-                                pagedAdminRecords.map((record) => (
+                                pagedAdminRecords.map((record, index) => (
                                     <div key={record.user.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                                        <div className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 w-8 shrink-0">
+                                            {(adminPage - 1) * ADMIN_PAGE_SIZE + index + 1}.
+                                        </div>
                                         <div className="flex-1">
                                             <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
                                                 {record.user.name || record.user.email}
@@ -389,13 +405,13 @@ const Attendance = () => {
                                                 <span className="px-2 py-1 rounded bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">Missing</span>
                                             )}
                                         </div>
-                                        <div className="w-full sm:w-28">
+                                        <div className="w-full sm:w-40">
                                             {record.attendance?.imageUrl ? (
                                                 <div className="cursor-pointer group">
-                                                    <img 
-                                                        src={record.attendance.imageUrl} 
-                                                        alt="attendance" 
-                                                        className="w-full h-20 object-cover rounded border border-zinc-200 dark:border-zinc-800 group-hover:opacity-75 transition-opacity"
+                                                    <img
+                                                        src={record.attendance.imageUrl}
+                                                        alt="attendance"
+                                                        className="w-full h-32 object-cover rounded border border-zinc-200 dark:border-zinc-800 group-hover:opacity-75 transition-opacity"
                                                         onClick={() => setSelectedPhoto(record.attendance)}
                                                     />
                                                     {record.attendance.createdAt && (
@@ -405,7 +421,7 @@ const Attendance = () => {
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="w-full h-20 flex items-center justify-center rounded border border-dashed border-zinc-300 dark:border-zinc-700 text-xs text-zinc-500">
+                                                <div className="w-full h-32 flex items-center justify-center rounded border border-dashed border-zinc-300 dark:border-zinc-700 text-xs text-zinc-500">
                                                     No photo
                                                 </div>
                                             )}

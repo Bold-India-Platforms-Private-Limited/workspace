@@ -25,6 +25,8 @@ const RecentActivity = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
 
+    const isMember = user?.role !== "ADMIN";
+
     const userGroupIds = useMemo(() => {
         if (!user?.id || !currentWorkspace) return new Set();
         return new Set(
@@ -33,6 +35,20 @@ const RecentActivity = () => {
                 .map((group) => group.id)
         );
     }, [currentWorkspace, user]);
+
+    const userGroupMemberIds = useMemo(() => {
+        if (!isMember || !currentWorkspace) return null;
+        const ids = new Set();
+        (currentWorkspace.groups || [])
+            .filter((group) => userGroupIds.has(group.id))
+            .forEach((group) => (group.members || []).forEach((m) => ids.add(m.userId)));
+        return ids;
+    }, [isMember, currentWorkspace, userGroupIds]);
+
+    const filterAssignees = (assignees) => {
+        if (!isMember || !userGroupMemberIds) return assignees || [];
+        return (assignees || []).filter((a) => userGroupMemberIds.has(a.userId));
+    };
 
     const getTasksFromCurrentWorkspace = () => {
 
@@ -100,17 +116,20 @@ const RecentActivity = () => {
                                             </div>
                                             <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
                                                 <span className="capitalize">{task.type.toLowerCase()}</span>
-                                                {(task.assignees || []).length > 0 && (
-                                                    <div className="flex items-center gap-1">
-                                                        <div className="w-4 h-4 bg-zinc-300 dark:bg-zinc-700 rounded-full flex items-center justify-center text-[10px] text-zinc-800 dark:text-zinc-200">
-                                                            {task.assignees[0].user?.name?.[0]?.toUpperCase() || "U"}
+                                                {(() => {
+                                                    const displayAssignees = filterAssignees(task.assignees);
+                                                    return displayAssignees.length > 0 && (
+                                                        <div className="flex items-center gap-1">
+                                                            <div className="w-4 h-4 bg-zinc-300 dark:bg-zinc-700 rounded-full flex items-center justify-center text-[10px] text-zinc-800 dark:text-zinc-200">
+                                                                {displayAssignees[0].user?.name?.[0]?.toUpperCase() || "U"}
+                                                            </div>
+                                                            {displayAssignees[0].user?.name || displayAssignees[0].user?.email}
+                                                            {displayAssignees.length > 1 && (
+                                                                <span className="text-[10px] text-zinc-500">+{displayAssignees.length - 1}</span>
+                                                            )}
                                                         </div>
-                                                        {task.assignees[0].user?.name || task.assignees[0].user?.email}
-                                                        {task.assignees.length > 1 && (
-                                                            <span className="text-[10px] text-zinc-500">+{task.assignees.length - 1}</span>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                    );
+                                                })()}
                                                 <span>
                                                     {format(new Date(task.updatedAt), "MMM d, h:mm a")}
                                                 </span>

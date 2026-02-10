@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../configs/api";
 import { useSelector } from "react-redux";
-import { ArrowLeft, UsersIcon, MessageCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, UsersIcon, MessageCircle, Trash2, Search, Send, MessageSquareOff } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import toast from "react-hot-toast";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 200;
 
 const Groups = () => {
     const { getToken } = useAuth();
@@ -24,6 +24,18 @@ const Groups = () => {
     const [newMessage, setNewMessage] = useState("");
     const [showMembers, setShowMembers] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [sortFilter, setSortFilter] = useState("latest");
+    const [groupSearch, setGroupSearch] = useState("");
+    const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
+    const [broadcastMessage, setBroadcastMessage] = useState("");
+    const [isBroadcasting, setIsBroadcasting] = useState(false);
+    const [isBulkClearChatOpen, setIsBulkClearChatOpen] = useState(false);
+    const [isBulkClearing, setIsBulkClearing] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState("");
+    const [groupLastMessages, setGroupLastMessages] = useState({});
+    const [seenMessages, setSeenMessages] = useState(() => {
+        try { return JSON.parse(localStorage.getItem("seenGroupMessages") || "{}"); } catch { return {}; }
+    });
     const messagesEndRef = useRef(null);
 
     const shortText = (value, max = 5) => {
@@ -42,14 +54,57 @@ const Groups = () => {
         }
     };
 
+    const fetchGroupLastMessages = async () => {
+        if (!currentWorkspace || user?.role !== "ADMIN") return;
+        try {
+            const token = await getToken();
+            const results = {};
+            await Promise.all(
+                (groups || []).map(async (group) => {
+                    try {
+                        const { data } = await api.get(`/api/groups/${group.id}/messages`, { headers: { Authorization: `Bearer ${token}` } });
+                        const msgs = data.messages || [];
+                        if (msgs.length > 0) {
+                            results[group.id] = msgs[msgs.length - 1];
+                        }
+                    } catch { /* skip */ }
+                })
+            );
+            setGroupLastMessages(results);
+        } catch { /* skip */ }
+    };
+
     useEffect(() => {
         fetchGroups();
     }, [currentWorkspace]);
 
+    useEffect(() => {
+        if (groups.length > 0 && user?.role === "ADMIN") {
+            fetchGroupLastMessages();
+        }
+    }, [groups]);
+
     const visibleGroups = useMemo(() => {
-        if (user?.role === "ADMIN") return groups;
-        return groups.filter((group) => group.members?.some((m) => m.userId === user?.id));
-    }, [groups, user]);
+        let filtered = user?.role === "ADMIN" ? [...groups] : groups.filter((group) => group.members?.some((m) => m.userId === user?.id));
+        if (groupSearch.trim()) {
+            const term = groupSearch.trim().toLowerCase();
+            filtered = filtered.filter((g) => g.name?.toLowerCase().includes(term));
+        }
+        if (user?.role === "ADMIN" && sortFilter === "conversations") {
+            filtered.sort((a, b) => {
+                const msgA = groupLastMessages[a.id]?.createdAt ? new Date(groupLastMessages[a.id].createdAt).getTime() : 0;
+                const msgB = groupLastMessages[b.id]?.createdAt ? new Date(groupLastMessages[b.id].createdAt).getTime() : 0;
+                return msgB - msgA;
+            });
+        } else if (user?.role === "ADMIN" && sortFilter === "latest") {
+            filtered.sort((a, b) => {
+                const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return dateB - dateA;
+            });
+        }
+        return filtered;
+    }, [groups, user, sortFilter, groupLastMessages]);
 
     const pagedGroups = useMemo(() => {
         const start = (page - 1) * PAGE_SIZE;
@@ -188,20 +243,70 @@ const Groups = () => {
     const handleBulkDeleteGroups = async () => {
         try {
             const groupIds = Array.from(selectedGroupsForDelete);
-            const confirmMsg = `Delete ${groupIds.length} group(s)? This removes all members and chats from these groups.`;
-            const confirm = window.confirm(confirmMsg);
-            if (!confirm) return;
-            
+            const token = await getToken();
             for (const groupId of groupIds) {
-                await api.delete(`/api/groups/${groupId}`, { headers: { Authorization: `Bearer ${await getToken()}` } });
+                await api.delete(`/api/groups/${groupId}`, { headers: { Authorization: `Bearer ${token}` } });
             }
-            
             toast.success(`Deleted ${groupIds.length} group(s) successfully!`);
             setSelectedGroupsForDelete(new Set());
             setIsBulkDeleteModalOpen(false);
+            setDeleteConfirmText("");
             fetchGroups();
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);
+        }
+    };
+
+    const handleBulkClearChat = async () => {
+        if (selectedGroupsForDelete.size === 0) return;
+        try {
+            setIsBulkClearing(true);
+            const token = await getToken();
+            const groupIds = Array.from(selectedGroupsForDelete);
+            let cleared = 0;
+            for (const groupId of groupIds) {
+                try {
+                    await api.delete(`/api/groups/${groupId}/messages`, { headers: { Authorization: `Bearer ${token}` } });
+                    cleared++;
+                } catch { /* skip */ }
+            }
+            toast.success(`Cleared chat in ${cleared} group(s)`);
+            setIsBulkClearChatOpen(false);
+            setSelectedGroupsForDelete(new Set());
+            fetchGroupLastMessages();
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setIsBulkClearing(false);
+        }
+    };
+
+    const handleBroadcastMessage = async () => {
+        if (!broadcastMessage.trim() || selectedGroupsForDelete.size === 0) return;
+        try {
+            setIsBroadcasting(true);
+            const token = await getToken();
+            const groupIds = Array.from(selectedGroupsForDelete);
+            let sent = 0;
+            for (const groupId of groupIds) {
+                try {
+                    await api.post(
+                        `/api/groups/${groupId}/messages`,
+                        { content: broadcastMessage },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    sent++;
+                } catch { /* skip failed */ }
+            }
+            toast.success(`Message sent to ${sent} group(s)`);
+            setBroadcastMessage("");
+            setIsBroadcastOpen(false);
+            setSelectedGroupsForDelete(new Set());
+            fetchGroupLastMessages();
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setIsBroadcasting(false);
         }
     };
 
@@ -220,9 +325,16 @@ const Groups = () => {
         if (selectedGroup) {
             fetchMessages();
             const interval = setInterval(fetchMessages, 10000);
+            // Mark as seen
+            const lastMsg = groupLastMessages[selectedGroup.id];
+            if (lastMsg) {
+                const updated = { ...seenMessages, [selectedGroup.id]: lastMsg.id };
+                setSeenMessages(updated);
+                localStorage.setItem("seenGroupMessages", JSON.stringify(updated));
+            }
             return () => clearInterval(interval);
         }
-    }, [selectedGroup]);
+    }, [selectedGroup, groupLastMessages]);
 
     useEffect(() => {
         if (selectedGroup) {
@@ -246,13 +358,63 @@ const Groups = () => {
                             {user?.role === "ADMIN" ? "Groups" : "Team Group"}
                         </h1>
                         {user?.role === "ADMIN" && selectedGroupsForDelete.size > 0 && (
-                            <button 
-                                onClick={() => setIsBulkDeleteModalOpen(true)}
-                                className="flex items-center gap-2 px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm transition"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                                Delete ({selectedGroupsForDelete.size})
-                            </button>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                    onClick={() => setIsBroadcastOpen(true)}
+                                    className="flex items-center gap-2 px-4 py-2 rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm transition"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    Message ({selectedGroupsForDelete.size})
+                                </button>
+                                <button
+                                    onClick={() => setIsBulkClearChatOpen(true)}
+                                    className="flex items-center gap-2 px-4 py-2 rounded bg-amber-500 hover:bg-amber-600 text-white text-sm transition"
+                                >
+                                    <MessageSquareOff className="w-4 h-4" />
+                                    Clear Chats ({selectedGroupsForDelete.size})
+                                </button>
+                                <button
+                                    onClick={() => { setIsBulkDeleteModalOpen(true); setDeleteConfirmText(""); }}
+                                    className="flex items-center gap-2 px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm transition"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete ({selectedGroupsForDelete.size})
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Search bar + Sort filters */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" />
+                            <input
+                                value={groupSearch}
+                                onChange={(e) => { setGroupSearch(e.target.value); setPage(1); }}
+                                placeholder="Search groups..."
+                                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 outline-none focus:border-zinc-400 dark:focus:border-zinc-600"
+                            />
+                        </div>
+                        {user?.role === "ADMIN" && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-zinc-500 dark:text-zinc-400 mr-1">Sort by:</span>
+                                {[
+                                    { key: "latest", label: "Latest Created" },
+                                    { key: "conversations", label: "Conversations" },
+                                ].map((opt) => (
+                                    <button
+                                        key={opt.key}
+                                        onClick={() => { setSortFilter(opt.key); setPage(1); }}
+                                        className={`px-3 py-1.5 text-xs rounded-full border transition ${
+                                            sortFilter === opt.key
+                                                ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white"
+                                                : "border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-600"
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
                         )}
                     </div>
 
@@ -318,7 +480,19 @@ const Groups = () => {
                                                     <p className="text-xs text-zinc-500 dark:text-zinc-400">{group.members?.length || 0} members</p>
                                                 </button>
                                             </div>
-                                            <UsersIcon className="size-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                {(() => {
+                                                    const lastMsg = groupLastMessages[group.id];
+                                                    const hasNew = lastMsg && seenMessages[group.id] !== lastMsg.id;
+                                                    return hasNew ? (
+                                                        <span className="relative flex h-2.5 w-2.5">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500" />
+                                                        </span>
+                                                    ) : null;
+                                                })()}
+                                                <UsersIcon className="size-4 text-zinc-500 dark:text-zinc-400" />
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -520,21 +694,115 @@ const Groups = () => {
                 </div>
             )}
 
-            {/* Bulk Delete Modal */}
+            {/* Broadcast Message Modal */}
+            {isBroadcastOpen && (
+                <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-zinc-950 rounded-lg max-w-md w-full p-6 space-y-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Broadcast Message</h3>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                                Send a message to {selectedGroupsForDelete.size} selected group(s)
+                            </p>
+                        </div>
+
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-3">
+                            <div className="text-xs font-medium text-blue-900 dark:text-blue-200 mb-2">Sending to:</div>
+                            <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                                {visibleGroups
+                                    .filter((g) => selectedGroupsForDelete.has(g.id))
+                                    .map((group) => (
+                                        <span key={group.id} className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-800/40 text-blue-700 dark:text-blue-300">
+                                            {group.name}
+                                        </span>
+                                    ))}
+                            </div>
+                        </div>
+
+                        <textarea
+                            value={broadcastMessage}
+                            onChange={(e) => setBroadcastMessage(e.target.value)}
+                            placeholder="Type your message..."
+                            rows={4}
+                            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-600 resize-none"
+                        />
+
+                        <div className="flex gap-3 justify-end pt-2">
+                            <button
+                                onClick={() => { setIsBroadcastOpen(false); setBroadcastMessage(""); }}
+                                className="px-4 py-2 rounded border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBroadcastMessage}
+                                disabled={!broadcastMessage.trim() || isBroadcasting}
+                                className="px-4 py-2 rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white transition disabled:opacity-50"
+                            >
+                                {isBroadcasting ? "Sending..." : "Send to All"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Clear Chat Modal */}
+            {isBulkClearChatOpen && (
+                <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-zinc-950 rounded-lg max-w-md w-full p-6 space-y-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Clear All Chats</h3>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                                Clear all messages in {selectedGroupsForDelete.size} selected group(s)? This cannot be undone.
+                            </p>
+                        </div>
+
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded p-3">
+                            <div className="text-xs font-medium text-amber-900 dark:text-amber-200 mb-2">Groups to clear:</div>
+                            <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                                {visibleGroups
+                                    .filter((g) => selectedGroupsForDelete.has(g.id))
+                                    .map((group) => (
+                                        <span key={group.id} className="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300">
+                                            {group.name}
+                                        </span>
+                                    ))}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 justify-end pt-2">
+                            <button
+                                onClick={() => setIsBulkClearChatOpen(false)}
+                                className="px-4 py-2 rounded border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBulkClearChat}
+                                disabled={isBulkClearing}
+                                className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-600 text-white transition disabled:opacity-50"
+                            >
+                                {isBulkClearing ? "Clearing..." : "Clear All Chats"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Delete Modal - Dual Confirmation */}
             {isBulkDeleteModalOpen && (
                 <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
                     <div className="bg-white dark:bg-zinc-950 rounded-lg max-w-md w-full p-6 space-y-4">
                         <div>
-                            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Delete Groups</h3>
+                            <h3 className="text-lg font-semibold text-red-600 dark:text-red-400">⚠ Delete Groups</h3>
                             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-                                Are you sure you want to delete {selectedGroupsForDelete.size} group(s)? This action cannot be undone.
+                                This will permanently delete {selectedGroupsForDelete.size} group(s), including all members and chat messages. This action cannot be undone.
                             </p>
                         </div>
 
                         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3">
                             <div className="text-sm font-medium text-red-900 dark:text-red-200 mb-2">Groups to delete:</div>
                             <div className="space-y-1 max-h-32 overflow-y-auto">
-                                {pagedGroups
+                                {visibleGroups
                                     .filter((g) => selectedGroupsForDelete.has(g.id))
                                     .map((group) => (
                                         <div key={group.id} className="text-sm text-red-800 dark:text-red-300 flex items-center gap-2">
@@ -545,16 +813,29 @@ const Groups = () => {
                             </div>
                         </div>
 
+                        <div>
+                            <label className="text-sm text-zinc-600 dark:text-zinc-400 block mb-1">
+                                Type <span className="font-bold text-red-600 dark:text-red-400">{selectedGroupsForDelete.size}</span> to confirm:
+                            </label>
+                            <input
+                                value={deleteConfirmText}
+                                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                placeholder={`Type ${selectedGroupsForDelete.size}`}
+                                className="w-full rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-red-400"
+                            />
+                        </div>
+
                         <div className="flex gap-3 justify-end pt-2">
                             <button
-                                onClick={() => setIsBulkDeleteModalOpen(false)}
+                                onClick={() => { setIsBulkDeleteModalOpen(false); setDeleteConfirmText(""); }}
                                 className="px-4 py-2 rounded border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleBulkDeleteGroups}
-                                className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white transition"
+                                disabled={deleteConfirmText !== String(selectedGroupsForDelete.size)}
+                                className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Delete Groups
                             </button>

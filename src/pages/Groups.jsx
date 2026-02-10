@@ -24,7 +24,7 @@ const Groups = () => {
     const [newMessage, setNewMessage] = useState("");
     const [showMembers, setShowMembers] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [sortFilter, setSortFilter] = useState("latest");
+    const [sortFilter, setSortFilter] = useState(user?.role === "ADMIN" ? "conversations" : "latest");
     const [groupSearch, setGroupSearch] = useState("");
     const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
     const [broadcastMessage, setBroadcastMessage] = useState("");
@@ -32,6 +32,8 @@ const Groups = () => {
     const [isBulkClearChatOpen, setIsBulkClearChatOpen] = useState(false);
     const [isBulkClearing, setIsBulkClearing] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState("");
+    const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+    const [isSending, setIsSending] = useState(false);
     const [groupLastMessages, setGroupLastMessages] = useState({});
     const [seenMessages, setSeenMessages] = useState(() => {
         try { return JSON.parse(localStorage.getItem("seenGroupMessages") || "{}"); } catch { return {}; }
@@ -41,6 +43,26 @@ const Groups = () => {
     const shortText = (value, max = 5) => {
         const text = String(value || "");
         return text.length > max ? `${text.slice(0, max)}...` : text;
+    };
+
+    const getInitials = (name) => {
+        if (!name) return "?";
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+        return parts[0][0]?.toUpperCase() || "?";
+    };
+
+    const avatarColors = [
+        "bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-rose-500",
+        "bg-amber-500", "bg-cyan-500", "bg-pink-500", "bg-teal-500",
+        "bg-indigo-500", "bg-orange-500"
+    ];
+
+    const getAvatarColor = (name) => {
+        if (!name) return avatarColors[0];
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        return avatarColors[Math.abs(hash) % avatarColors.length];
     };
 
     const fetchGroups = async () => {
@@ -55,7 +77,7 @@ const Groups = () => {
     };
 
     const fetchGroupLastMessages = async () => {
-        if (!currentWorkspace || user?.role !== "ADMIN") return;
+        if (!currentWorkspace) return;
         try {
             const token = await getToken();
             const results = {};
@@ -79,7 +101,7 @@ const Groups = () => {
     }, [currentWorkspace]);
 
     useEffect(() => {
-        if (groups.length > 0 && user?.role === "ADMIN") {
+        if (groups.length > 0) {
             fetchGroupLastMessages();
         }
     }, [groups]);
@@ -90,13 +112,13 @@ const Groups = () => {
             const term = groupSearch.trim().toLowerCase();
             filtered = filtered.filter((g) => g.name?.toLowerCase().includes(term));
         }
-        if (user?.role === "ADMIN" && sortFilter === "conversations") {
+        if (sortFilter === "conversations") {
             filtered.sort((a, b) => {
                 const msgA = groupLastMessages[a.id]?.createdAt ? new Date(groupLastMessages[a.id].createdAt).getTime() : 0;
                 const msgB = groupLastMessages[b.id]?.createdAt ? new Date(groupLastMessages[b.id].createdAt).getTime() : 0;
                 return msgB - msgA;
             });
-        } else if (user?.role === "ADMIN" && sortFilter === "latest") {
+        } else if (sortFilter === "latest") {
             filtered.sort((a, b) => {
                 const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
                 const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -195,10 +217,15 @@ const Groups = () => {
         setIsEditOpen(false);
     };
 
-    const fetchMessages = async () => {
+    const fetchMessages = async (showLoading = false) => {
         if (!selectedGroup) return;
-        const { data } = await api.get(`/api/groups/${selectedGroup.id}/messages`, { headers: { Authorization: `Bearer ${await getToken()}` } });
-        setMessages(data.messages || []);
+        if (showLoading) setIsMessagesLoading(true);
+        try {
+            const { data } = await api.get(`/api/groups/${selectedGroup.id}/messages`, { headers: { Authorization: `Bearer ${await getToken()}` } });
+            setMessages(data.messages || []);
+        } finally {
+            if (showLoading) setIsMessagesLoading(false);
+        }
     };
 
     const handleClearChat = async () => {
@@ -311,20 +338,25 @@ const Groups = () => {
     };
 
     const sendMessage = async () => {
-        if (!newMessage.trim()) return;
-        const { data } = await api.post(
-            `/api/groups/${selectedGroup.id}/messages`,
-            { content: newMessage },
-            { headers: { Authorization: `Bearer ${await getToken()}` } }
-        );
-        setMessages((prev) => prev.concat(data.message));
-        setNewMessage("");
+        if (!newMessage.trim() || isSending) return;
+        try {
+            setIsSending(true);
+            const { data } = await api.post(
+                `/api/groups/${selectedGroup.id}/messages`,
+                { content: newMessage },
+                { headers: { Authorization: `Bearer ${await getToken()}` } }
+            );
+            setMessages((prev) => prev.concat(data.message));
+            setNewMessage("");
+        } finally {
+            setIsSending(false);
+        }
     };
 
     useEffect(() => {
         if (selectedGroup) {
-            fetchMessages();
-            const interval = setInterval(fetchMessages, 10000);
+            fetchMessages(true);
+            const interval = setInterval(() => fetchMessages(false), 10000);
             // Mark as seen
             const lastMsg = groupLastMessages[selectedGroup.id];
             if (lastMsg) {
@@ -395,8 +427,7 @@ const Groups = () => {
                                 className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 outline-none focus:border-zinc-400 dark:focus:border-zinc-600"
                             />
                         </div>
-                        {user?.role === "ADMIN" && (
-                            <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                                 <span className="text-xs text-zinc-500 dark:text-zinc-400 mr-1">Sort by:</span>
                                 {[
                                     { key: "latest", label: "Latest Created" },
@@ -415,87 +446,125 @@ const Groups = () => {
                                     </button>
                                 ))}
                             </div>
-                        )}
                     </div>
 
                     {isLoading ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
                             {Array.from({ length: 6 }).map((_, idx) => (
-                                <div key={idx} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 animate-pulse">
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-2">
-                                            <div className="h-4 w-32 bg-zinc-200 dark:bg-zinc-800 rounded" />
-                                            <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                                <div key={idx} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 animate-pulse">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-11 h-11 rounded-full bg-zinc-200 dark:bg-zinc-800 flex-shrink-0" />
+                                        <div className="flex-1 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <div className="h-4 w-28 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                                                <div className="h-3 w-12 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                                            </div>
+                                            <div className="h-3 w-44 bg-zinc-200 dark:bg-zinc-800 rounded" />
                                         </div>
-                                        <div className="h-6 w-6 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : visibleGroups.length === 0 ? (
-                        <div className="text-zinc-500 dark:text-zinc-400">No groups found; Your Project Manager will create shortly.</div>
-                        
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                            <div className="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
+                                <UsersIcon className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
+                            </div>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400">No groups found</p>
+                            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Your Project Manager will create shortly.</p>
+                        </div>
                     ) : (
                         <div>
                             {user?.role === "ADMIN" && visibleGroups.length > 0 && (
-                                <div className="mb-4 flex items-center gap-2 p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                                    <input 
-                                        type="checkbox" 
+                                <div className="mb-3 flex items-center gap-2 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                                    <input
+                                        type="checkbox"
                                         checked={pagedGroups.length > 0 && pagedGroups.every((g) => selectedGroupsForDelete.has(g.id))}
                                         onChange={toggleSelectAllGroupsForDelete}
-                                        className="cursor-pointer"
+                                        className="cursor-pointer accent-blue-500"
                                     />
-                                    <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                                        {pagedGroups.length > 0 && pagedGroups.every((g) => selectedGroupsForDelete.has(g.id)) 
-                                            ? "Deselect all on this page" 
+                                    <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                                        {pagedGroups.length > 0 && pagedGroups.every((g) => selectedGroupsForDelete.has(g.id))
+                                            ? "Deselect all on this page"
                                             : "Select all on this page"}
                                     </span>
+                                    {selectedGroupsForDelete.size > 0 && (
+                                        <span className="ml-auto text-xs font-medium text-blue-600 dark:text-blue-400">{selectedGroupsForDelete.size} selected</span>
+                                    )}
                                 </div>
                             )}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {pagedGroups.map((group) => (
-                                    <div
-                                        key={group.id}
-                                        className={`text-left border rounded-lg p-4 transition ${
-                                            selectedGroupsForDelete.has(group.id)
-                                                ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700"
-                                                : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
-                                        } hover:border-zinc-300 dark:hover:border-zinc-700`}
-                                    >
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div className="flex-1 flex items-center gap-3">
+                            <div className="space-y-2">
+                                {pagedGroups.map((group) => {
+                                    const lastMsg = groupLastMessages[group.id];
+                                    const hasNew = lastMsg && seenMessages[group.id] !== lastMsg.id;
+                                    const lastMsgTime = lastMsg?.createdAt ? new Date(lastMsg.createdAt) : null;
+                                    const timeStr = lastMsgTime
+                                        ? (new Date().toDateString() === lastMsgTime.toDateString()
+                                            ? lastMsgTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                                            : lastMsgTime.toLocaleDateString([], { month: "short", day: "numeric" }))
+                                        : null;
+                                    const isSelected = selectedGroupsForDelete.has(group.id);
+                                    return (
+                                        <div
+                                            key={group.id}
+                                            className={`border rounded-xl transition-all cursor-pointer group ${
+                                                isSelected
+                                                    ? "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50"
+                                                    : hasNew
+                                                        ? "bg-blue-50/40 dark:bg-blue-900/5 border-blue-200/60 dark:border-blue-800/30"
+                                                        : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+                                            } hover:shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700`}
+                                        >
+                                            <div className="flex items-center gap-3 p-3">
                                                 {user?.role === "ADMIN" && (
-                                                    <input 
+                                                    <input
                                                         type="checkbox"
-                                                        checked={selectedGroupsForDelete.has(group.id)}
+                                                        checked={isSelected}
                                                         onChange={() => toggleGroupSelectForDelete(group.id)}
-                                                        className="cursor-pointer"
+                                                        className="cursor-pointer accent-blue-500 flex-shrink-0"
                                                     />
                                                 )}
                                                 <button
                                                     onClick={() => { setSelectedGroup(group); setMemberPage(1); }}
-                                                    className="flex-1 text-left"
+                                                    className="flex items-center gap-3 flex-1 text-left min-w-0"
                                                 >
-                                                    <h3 className="font-semibold text-zinc-900 dark:text-white">{group.name}</h3>
-                                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{group.members?.length || 0} members</p>
+                                                    <div className="relative flex-shrink-0">
+                                                        <div className={`w-11 h-11 rounded-full ${getAvatarColor(group.name)} flex items-center justify-center text-white font-semibold text-sm shadow-sm`}>
+                                                            {getInitials(group.name)}
+                                                        </div>
+                                                        {hasNew && (
+                                                            <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5">
+                                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                                                                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-blue-500 border-2 border-white dark:border-zinc-950" />
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <h3 className={`text-sm truncate ${hasNew ? "font-bold text-zinc-900 dark:text-white" : "font-semibold text-zinc-900 dark:text-white"}`}>{group.name}</h3>
+                                                            {timeStr && (
+                                                                <span className={`text-[11px] flex-shrink-0 ${hasNew ? "font-semibold text-blue-600 dark:text-blue-400" : "text-zinc-400 dark:text-zinc-500"}`}>{timeStr}</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                                                            <p className={`text-xs truncate ${hasNew ? "text-zinc-700 dark:text-zinc-300 font-medium" : "text-zinc-500 dark:text-zinc-400"}`}>
+                                                                {lastMsg
+                                                                    ? `${lastMsg.user?.name?.split(" ")[0] || "Someone"}: ${lastMsg.content?.length > 35 ? lastMsg.content.slice(0, 35) + "..." : lastMsg.content}`
+                                                                    : `${group.members?.length || 0} members`
+                                                                }
+                                                            </p>
+                                                            {hasNew && (
+                                                                <span className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">
+                                                                    new
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </button>
                                             </div>
-                                            <div className="flex items-center gap-2 flex-shrink-0">
-                                                {(() => {
-                                                    const lastMsg = groupLastMessages[group.id];
-                                                    const hasNew = lastMsg && seenMessages[group.id] !== lastMsg.id;
-                                                    return hasNew ? (
-                                                        <span className="relative flex h-2.5 w-2.5">
-                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500" />
-                                                        </span>
-                                                    ) : null;
-                                                })()}
-                                                <UsersIcon className="size-4 text-zinc-500 dark:text-zinc-400" />
-                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -509,117 +578,193 @@ const Groups = () => {
                     )}
                 </>
             ) : (
-                <div className="flex flex-col gap-4 h-[calc(100vh-140px)] overflow-hidden lg:h-auto lg:overflow-visible">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
+                <div className="flex flex-col h-[calc(100vh-140px)] overflow-hidden lg:h-auto lg:overflow-visible">
+                    {/* Chat Header */}
+                    <div className="flex items-center justify-between gap-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 mb-3 shadow-sm">
+                        <div className="flex items-center gap-3 min-w-0">
                             <button
-  onClick={() => setSelectedGroup(null)}
-  aria-label="Go back"
-  className="
-    flex items-center justify-center
-    h-10 w-10
-    rounded-full
-    active:scale-95
-    transition-all
-    text-gray-700 dark:text-gray-200
-    hover:bg-gray-100 dark:hover:bg-gray-800
-    active:bg-gray-200 dark:active:bg-gray-700
-    focus:outline-none focus:ring-2 focus:ring-blue-500
-  "
->
-  <ArrowLeft className="h-5 w-5" />
-</button>
-                            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
-                                <span className="sm:hidden">{shortText(selectedGroup.name)}</span>
-                                <span className="hidden sm:inline">{selectedGroup.name}</span>
-                            </h2>
+                                onClick={() => setSelectedGroup(null)}
+                                aria-label="Go back"
+                                className="flex items-center justify-center h-9 w-9 rounded-full active:scale-95 transition-all text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            >
+                                <ArrowLeft className="h-5 w-5" />
+                            </button>
+                            <div className={`flex-shrink-0 w-10 h-10 rounded-full ${getAvatarColor(selectedGroup.name)} flex items-center justify-center text-white font-semibold text-sm shadow-sm`}>
+                                {getInitials(selectedGroup.name)}
+                            </div>
+                            <div className="min-w-0">
+                                <h2 className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                                    <span className="sm:hidden">{shortText(selectedGroup.name, 12)}</span>
+                                    <span className="hidden sm:inline">{selectedGroup.name}</span>
+                                </h2>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400">{activeGroupMembers.length} members</p>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <button onClick={() => setShowMembers((prev) => !prev)} className="px-3 py-1.5 text-sm rounded border">Members</button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <button onClick={() => setShowMembers((prev) => !prev)} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition text-zinc-700 dark:text-zinc-300">Members</button>
                             {user?.role === "ADMIN" && (
                                 <>
-                                    <button onClick={openEdit} className="px-3 py-1.5 text-sm rounded border">Edit Members</button>
-                                    <button onClick={handleClearChat} className="px-3 py-1.5 text-sm rounded border">Clear Chat</button>
-                                    <button onClick={handleDeleteGroup} className="px-3 py-1.5 text-sm rounded border text-red-600 dark:text-red-400 border-red-300 dark:border-red-700">Delete Group</button>
+                                    <button onClick={openEdit} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition text-zinc-700 dark:text-zinc-300">Edit</button>
+                                    <button onClick={handleClearChat} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition text-zinc-700 dark:text-zinc-300">Clear</button>
+                                    <button onClick={handleDeleteGroup} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition">Delete</button>
                                 </>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex flex-col lg:flex-row gap-4 lg:h-auto h-full overflow-hidden">
-                        <div className="flex-1 border border-gray-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 overflow-hidden flex flex-col h-full lg:h-[calc(100vh-220px)] lg:min-h-[420px]">
-                            <div className="border-b border-gray-200 dark:border-zinc-800 p-3 flex items-center gap-2 text-sm">
-                                <MessageCircle className="size-4" /> Group Chat
-                            </div>
-                            <div className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-3">
-                                {messages.length === 0 ? (
-                                    <p className="text-sm text-zinc-500 dark:text-zinc-400">No messages yet.</p>
-                                ) : (
-                                    messages.map((msg) => (
-                                        <div key={msg.id} className="text-sm">
-                                            <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                                                <span className="font-medium text-zinc-900 dark:text-white">{msg.user?.name || msg.user?.email}</span>
-                                                <span>• {new Date(msg.createdAt).toLocaleString()}</span>
+                    <div className="flex flex-col lg:flex-row gap-3 h-full overflow-hidden lg:h-auto">
+                        {/* Chat Area */}
+                        <div className="flex-1 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 overflow-hidden flex flex-col h-full lg:h-[calc(100vh-230px)] lg:min-h-[420px] shadow-sm">
+                            {/* Chat background pattern */}
+                            <div className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-1 bg-zinc-50/50 dark:bg-zinc-900/30">
+                                {isMessagesLoading ? (
+                                    <div className="space-y-4 py-2">
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                            <div key={i} className={`flex items-end gap-2.5 ${i % 3 === 0 ? "justify-end" : ""}`}>
+                                                {i % 3 !== 0 && <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 animate-pulse flex-shrink-0" />}
+                                                <div className={`animate-pulse ${i % 3 === 0 ? "max-w-[65%] ml-auto" : "max-w-[65%]"}`}>
+                                                    {i % 3 !== 0 && <div className="h-3 w-16 bg-zinc-200 dark:bg-zinc-800 rounded mb-1.5" />}
+                                                    <div className={`rounded-2xl px-4 py-3 ${i % 3 === 0 ? "bg-blue-100 dark:bg-blue-900/30" : "bg-white dark:bg-zinc-800"}`}>
+                                                        <div className={`h-4 bg-zinc-200 dark:bg-zinc-700 rounded ${i % 2 === 0 ? "w-48" : "w-32"}`} />
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded px-3 py-2">
-                                                {msg.content}
-                                            </div>
+                                        ))}
+                                    </div>
+                                ) : messages.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                                        <div className={`w-16 h-16 rounded-full ${getAvatarColor(selectedGroup.name)} flex items-center justify-center text-white text-xl font-bold mb-4 opacity-60`}>
+                                            {getInitials(selectedGroup.name)}
                                         </div>
-                                    ))
+                                        <p className="text-sm text-zinc-400 dark:text-zinc-500">No messages yet</p>
+                                        <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">Start the conversation!</p>
+                                    </div>
+                                ) : (
+                                    messages.map((msg, idx) => {
+                                        const isMe = msg.user?.id === user?.id || msg.userId === user?.id;
+                                        const senderName = msg.user?.name || msg.user?.email || "Unknown";
+                                        const prevMsg = messages[idx - 1];
+                                        const sameSenderAsPrev = prevMsg && (prevMsg.user?.id === msg.user?.id || prevMsg.userId === msg.userId);
+                                        const showAvatar = !isMe && !sameSenderAsPrev;
+                                        const showName = !isMe && !sameSenderAsPrev;
+                                        return (
+                                            <div key={msg.id} className={`flex items-end gap-2 ${isMe ? "justify-end" : ""} ${sameSenderAsPrev ? "mt-0.5" : "mt-3"}`}>
+                                                {!isMe && (
+                                                    <div className="w-7 flex-shrink-0">
+                                                        {showAvatar && (
+                                                            <div className={`w-7 h-7 rounded-full ${getAvatarColor(senderName)} flex items-center justify-center text-white text-[10px] font-semibold`}>
+                                                                {getInitials(senderName)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                <div className={`max-w-[70%] ${isMe ? "items-end" : "items-start"} flex flex-col`}>
+                                                    {showName && (
+                                                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 ml-1 mb-0.5">{senderName}</span>
+                                                    )}
+                                                    <div className={`px-3.5 py-2 text-sm leading-relaxed ${
+                                                        isMe
+                                                            ? "bg-blue-500 text-white rounded-2xl rounded-br-md"
+                                                            : "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl rounded-bl-md border border-zinc-200 dark:border-zinc-700/50"
+                                                    }`}>
+                                                        {msg.content}
+                                                    </div>
+                                                    <span className={`text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5 ${isMe ? "mr-1 text-right" : "ml-1"}`}>
+                                                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
                                 )}
                                 <div ref={messagesEndRef} />
                             </div>
-                            <div className="border-t border-gray-200 dark:border-zinc-800 p-3 flex items-center gap-2">
+                            {/* Message Input */}
+                            <div className="border-t border-zinc-200 dark:border-zinc-800 p-3 flex items-center gap-2 bg-white dark:bg-zinc-950">
                                 <input
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     placeholder="Type a message..."
-                                    className="flex-1 rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 px-3 py-2 text-sm"
+                                    className="flex-1 rounded-full bg-zinc-100 dark:bg-zinc-900 border-0 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/30 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
                                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); sendMessage(); } }}
                                 />
-                                <button onClick={sendMessage} className="px-4 py-2 rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm">
-                                    Send
+                                <button
+                                    onClick={sendMessage}
+                                    disabled={isSending || !newMessage.trim()}
+                                    className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-40 disabled:hover:bg-blue-500 transition-all active:scale-95"
+                                >
+                                    {isSending ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <Send className="w-4 h-4" />
+                                    )}
                                 </button>
                             </div>
                         </div>
 
-                        <div className={`w-full lg:w-72 border border-gray-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 p-4 h-full lg:h-[calc(100vh-220px)] lg:min-h-[420px] flex-col hidden lg:flex`}>
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-sm font-semibold">Members</h3>
+                        {/* Desktop Members Sidebar */}
+                        <div className="w-full lg:w-80 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 h-full lg:h-[calc(100vh-230px)] lg:min-h-[420px] flex-col hidden lg:flex shadow-sm overflow-hidden">
+                            <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
+                                <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Members</h3>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{activeGroupMembers.length} members in this group</p>
                             </div>
-                            <div className="space-y-2 flex-1 overflow-y-auto no-scrollbar">
-                                {activeGroupMembers.map((member) => (
-                                    <div key={member.id} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                                        <span>{member.user?.name || member.user?.email}</span>
-                                    </div>
-                                ))}
+                            <div className="flex-1 overflow-y-auto no-scrollbar p-2">
+                                {activeGroupMembers.map((member) => {
+                                    const name = member.user?.name || member.user?.email || "Unknown";
+                                    return (
+                                        <div key={member.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition">
+                                            <div className={`w-9 h-9 rounded-full ${getAvatarColor(name)} flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 shadow-sm`}>
+                                                {getInitials(name)}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{name}</p>
+                                                {member.user?.email && (
+                                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{member.user.email}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
 
+                    {/* Mobile Members Sheet */}
                     {showMembers && (
                         <div className="fixed inset-0 z-50 lg:hidden">
                             <button
-                                className="absolute inset-0 bg-black/40"
+                                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
                                 onClick={() => setShowMembers(false)}
                                 aria-label="Close members"
                             />
-                            <div className="absolute bottom-0 left-0 right-0 h-[70vh] bg-white dark:bg-zinc-950 rounded-t-2xl border-t border-zinc-200 dark:border-zinc-800 shadow-xl flex flex-col animate-slide-up">
-                                <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-                                    <h3 className="text-sm font-semibold">Members</h3>
-                                    <button className="text-xs text-zinc-500" onClick={() => setShowMembers(false)}>Close</button>
+                            <div className="absolute bottom-0 left-0 right-0 h-[75vh] bg-white dark:bg-zinc-950 rounded-t-2xl border-t border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col animate-slide-up">
+                                <div className="flex justify-center pt-2 pb-1">
+                                    <div className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700" />
                                 </div>
-                                <div className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-2">
-                                    {activeGroupMembers.map((member) => (
-                                        <div key={member.id} className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                                            <span className="w-2 h-2 rounded-full bg-emerald-500 mt-1" />
-                                            <div className="flex flex-col">
-                                                <span>{member.user?.name || member.user?.email}</span>
-                                                <span className="text-xs text-zinc-500 dark:text-zinc-400">{member.user?.email}</span>
+                                <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Members</h3>
+                                        <p className="text-xs text-zinc-500 dark:text-zinc-400">{activeGroupMembers.length} members</p>
+                                    </div>
+                                    <button className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition" onClick={() => setShowMembers(false)}>Close</button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto no-scrollbar p-2">
+                                    {activeGroupMembers.map((member) => {
+                                        const name = member.user?.name || member.user?.email || "Unknown";
+                                        return (
+                                            <div key={member.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
+                                                <div className={`w-10 h-10 rounded-full ${getAvatarColor(name)} flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-sm`}>
+                                                    {getInitials(name)}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">{name}</p>
+                                                    {member.user?.email && (
+                                                        <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{member.user.email}</p>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

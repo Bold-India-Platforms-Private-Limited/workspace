@@ -2,6 +2,7 @@ import { FolderOpen, CheckCircle, Users, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { useAuth } from "../auth/AuthContext";
+import { nowIST } from "../configs/timezone";
 
 export default function StatsGrid() {
     const currentWorkspace = useSelector(
@@ -83,7 +84,7 @@ export default function StatsGrid() {
                     .filter((p) => p.status === "COMPLETED")
                     .reduce((acc, project) => acc + project.tasks.length, 0),
                 myTasks: visibleTasks.length,
-                overdueIssues: visibleTasks.filter((t) => t.due_date && new Date(t.due_date) < new Date()).length,
+                overdueIssues: visibleTasks.filter((t) => t.due_date && new Date(t.due_date) < nowIST()).length,
             });
         }
     }, [currentWorkspace, user]);

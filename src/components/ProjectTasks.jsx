@@ -2,6 +2,7 @@ import api from "../configs/api";
 import toast from "react-hot-toast";
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
+import { toIST } from "../configs/timezone";
 import { useAuth } from "../auth/AuthContext";
 import { useDispatch, useSelector } from "react-redux";
 import { deleteTask, updateTask } from "../features/workspaceSlice";
@@ -334,7 +335,7 @@ const ProjectTasks = ({ tasks, groups }) => {
                                                 <td className="px-4 py-2">
                                                     <div className="flex items-center gap-1 text-zinc-600 dark:text-zinc-400">
                                                         <CalendarIcon className="size-4" />
-                                                        {format(new Date(task.due_date), "dd MMMM")}
+                                                        {format(toIST(task.due_date), "dd MMMM")}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -430,7 +431,7 @@ const ProjectTasks = ({ tasks, groups }) => {
 
                                         <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
                                             <CalendarIcon className="size-4" />
-                                            {format(new Date(task.due_date), "dd MMMM")}
+                                            {format(toIST(task.due_date), "dd MMMM")}
                                         </div>
 
                                         <div className="flex items-center gap-2 text-xs">

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useSelector } from "react-redux";
 import api from "../configs/api";
-import { CalendarIcon, Camera, Image as ImageIcon } from "lucide-react";
+import { CalendarIcon, Camera, Image as ImageIcon, Clock, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import {
     addMonths,
     subMonths,
@@ -15,6 +15,7 @@ import {
     setYear,
     getYear,
 } from "date-fns";
+import { nowIST, toIST, todayKeyIST, dateKeyIST, TIMEZONE } from "../configs/timezone";
 
 const Attendance = () => {
     const { user, getToken } = useAuth();
@@ -27,16 +28,23 @@ const Attendance = () => {
     const [captured, setCaptured] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [attendances, setAttendances] = useState([]);
-    const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+    const [selectedDate, setSelectedDate] = useState(todayKeyIST());
     const [adminRecords, setAdminRecords] = useState([]);
     const [cameraError, setCameraError] = useState("");
     const [adminQuery, setAdminQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("marked");
     const [adminPage, setAdminPage] = useState(1);
     const [selectedPhoto, setSelectedPhoto] = useState(null);
-    const [deleteStartDate, setDeleteStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
-    const [deleteEndDate, setDeleteEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
-    const [calendarMonth, setCalendarMonth] = useState(new Date());
+    const [deleteStartDate, setDeleteStartDate] = useState(todayKeyIST());
+    const [deleteEndDate, setDeleteEndDate] = useState(todayKeyIST());
+    const [calendarMonth, setCalendarMonth] = useState(nowIST());
+    const [currentTime, setCurrentTime] = useState(nowIST());
+    const [selectedCalendarDay, setSelectedCalendarDay] = useState(todayKeyIST());
+
+    useEffect(() => {
+        const tick = setInterval(() => setCurrentTime(nowIST()), 1000);
+        return () => clearInterval(tick);
+    }, []);
 
     const ADMIN_PAGE_SIZE = 100;
 
@@ -46,7 +54,7 @@ const Attendance = () => {
         return eachDayOfInterval({ start, end });
     }, [calendarMonth]);
 
-    const currentYear = getYear(new Date());
+    const currentYear = getYear(nowIST());
     const yearOptions = useMemo(() => {
         const years = [];
         for (let y = currentYear - 5; y <= currentYear + 1; y += 1) {
@@ -58,12 +66,15 @@ const Attendance = () => {
     const attendanceMap = useMemo(() => {
         const map = new Map();
         attendances.forEach((a) => {
-            map.set(format(new Date(a.date), "yyyy-MM-dd"), a);
+            // Use createdAt (actual timestamp) converted to IST for correct day mapping
+            // Falls back to date field if createdAt is missing
+            const key = a.createdAt ? dateKeyIST(a.createdAt) : dateKeyIST(a.date);
+            map.set(key, a);
         });
         return map;
     }, [attendances]);
 
-    const todayKey = format(new Date(), "yyyy-MM-dd");
+    const todayKey = todayKeyIST();
     const todayAttendance = attendanceMap.get(todayKey);
 
     const startCamera = async () => {
@@ -169,7 +180,8 @@ const Attendance = () => {
     }, [selectedDate]);
 
     const handleAdminDateClick = (day) => {
-        const today = new Date(new Date().setHours(0, 0, 0, 0));
+        const ist = nowIST();
+        const today = new Date(ist.getFullYear(), ist.getMonth(), ist.getDate());
         const target = new Date(day.getFullYear(), day.getMonth(), day.getDate());
         if (target > today) return;
 
@@ -207,8 +219,8 @@ const Attendance = () => {
         });
         
         return filtered.sort((a, b) => {
-            const dateA = a.attendance?.createdAt ? new Date(a.attendance.createdAt).getTime() : 0;
-            const dateB = b.attendance?.createdAt ? new Date(b.attendance.createdAt).getTime() : 0;
+            const dateA = a.attendance?.createdAt ? toIST(a.attendance.createdAt).getTime() : 0;
+            const dateB = b.attendance?.createdAt ? toIST(b.attendance.createdAt).getTime() : 0;
             return dateB - dateA; // Latest first
         });
     }, [adminRecords, adminQuery, statusFilter]);
@@ -314,7 +326,8 @@ const Attendance = () => {
                                 })()}
                                 {monthDays.map((day) => {
                                     const key = format(day, "yyyy-MM-dd");
-                                    const today = new Date(new Date().setHours(0, 0, 0, 0));
+                                    const ist = nowIST();
+                                    const today = new Date(ist.getFullYear(), ist.getMonth(), ist.getDate());
                                     const isFuture = day > today;
                                     const isStart = deleteStartDate === key;
                                     const isEnd = deleteEndDate === key;
@@ -349,10 +362,10 @@ const Attendance = () => {
                         <div className="flex flex-wrap items-center gap-2">
                             <button
                                 onClick={() => {
-                                    const todayKey = format(new Date(), "yyyy-MM-dd");
-                                    setDeleteStartDate(todayKey);
-                                    setDeleteEndDate(todayKey);
-                                    setSelectedDate(todayKey);
+                                    const tk = todayKeyIST();
+                                    setDeleteStartDate(tk);
+                                    setDeleteEndDate(tk);
+                                    setSelectedDate(tk);
                                 }}
                                 className="px-3 py-2 rounded border text-sm"
                             >
@@ -416,7 +429,7 @@ const Attendance = () => {
                                                     />
                                                     {record.attendance.createdAt && (
                                                         <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">
-                                                            {format(new Date(record.attendance.createdAt), "MMM dd, yyyy HH:mm")}
+                                                            {format(toIST(record.attendance.createdAt), "MMM dd, yyyy hh:mm a")}
                                                         </div>
                                                     )}
                                                 </div>
@@ -453,159 +466,301 @@ const Attendance = () => {
                 </div>
             ) : (
                 <div className="space-y-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-[6fr_4fr] gap-6">
-                        <div className="bg-white dark:bg-zinc-950 dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm font-medium">Mark Attendance</div>
+                    {/* Live DateTime + Status Banner */}
+                    <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 dark:from-blue-700 dark:via-indigo-700 dark:to-violet-800 rounded-2xl p-5 sm:p-6 text-white shadow-lg shadow-blue-500/20 dark:shadow-blue-900/30">
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.1),transparent_60%)]" />
+                        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <p className="text-blue-100 dark:text-blue-200 text-xs font-medium tracking-wider uppercase">
+                                    {format(currentTime, "EEEE, MMMM dd, yyyy")}
+                                </p>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-3xl sm:text-4xl font-bold tracking-tight font-mono tabular-nums">
+                                        {format(currentTime, "hh:mm:ss")}
+                                    </span>
+                                    <span className="text-lg font-semibold text-blue-200 dark:text-blue-300">
+                                        {format(currentTime, "a")}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
                                 {todayAttendance ? (
-                                    <span className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Marked</span>
+                                    <div className="flex items-center gap-2.5 bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-white/20">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-400/20 flex items-center justify-center">
+                                            <CheckCircle2 className="w-5 h-5 text-emerald-300" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-white">Checked In</p>
+                                            <p className="text-[11px] text-blue-200">
+                                                {todayAttendance.createdAt ? format(toIST(todayAttendance.createdAt), "hh:mm a") : "Today"}
+                                            </p>
+                                        </div>
+                                    </div>
                                 ) : (
-                                    <span className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">Not marked</span>
+                                    <div className="flex items-center gap-2.5 bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-white/20">
+                                        <div className="w-8 h-8 rounded-full bg-red-400/20 flex items-center justify-center">
+                                            <XCircle className="w-5 h-5 text-red-300" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-white">Not Checked In</p>
+                                            <p className="text-[11px] text-blue-200">Pending</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-[6fr_4fr] gap-6">
+                        {/* Mark Attendance Card */}
+                        <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+                            {/* Card header */}
+                            <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                                        <Camera className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Mark Attendance</h3>
+                                        <p className="text-[11px] text-zinc-400 dark:text-zinc-500">Capture your photo to check in</p>
+                                    </div>
+                                </div>
+                                {todayAttendance && (
+                                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 uppercase tracking-wider">
+                                        Done
+                                    </span>
                                 )}
                             </div>
 
-                            {!permissionGranted ? (
-                                <div className="space-y-2">
-                                    <button
-                                        onClick={startCamera}
-                                        className="inline-flex items-center gap-2 px-4 py-2 rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm"
-                                    >
-                                        <Camera className="size-4" /> Enable Camera
-                                    </button>
-                                    {cameraError && (
-                                        <div className="text-xs text-red-600 dark:text-red-400">{cameraError}</div>
-                                    )}
-                                </div>
-                            ) : captured ? (
-                                <div className="space-y-3">
-                                    <div className="text-xs text-zinc-500">Preview (compressed)</div>
-                                    <img src={captured} alt="preview" className="w-full rounded border border-zinc-200 dark:border-zinc-800" />
-                                    <div className="flex flex-wrap gap-2">
+                            {/* Card body */}
+                            <div className="p-5 space-y-4">
+                                {!permissionGranted ? (
+                                    <div className="space-y-4">
+                                        {/* Camera placeholder */}
+                                        <div className="relative aspect-video rounded-xl bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-800 dark:to-zinc-800/50 border-2 border-dashed border-zinc-200 dark:border-zinc-700 flex flex-col items-center justify-center gap-3">
+                                            <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                                                <Camera className="w-7 h-7 text-blue-500 dark:text-blue-400" />
+                                            </div>
+                                            <p className="text-xs text-zinc-400 dark:text-zinc-500 text-center px-4">Enable your camera to take a selfie for attendance verification</p>
+                                        </div>
                                         <button
-                                            onClick={submitAttendance}
-                                            disabled={uploading}
-                                            className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-sm disabled:opacity-60"
+                                            onClick={startCamera}
+                                            className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-indigo-600 text-white text-sm font-semibold shadow-md shadow-blue-500/20 dark:shadow-blue-700/30 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-[0.98]"
                                         >
-                                            <ImageIcon className="size-4" /> {uploading ? "Submitting..." : "Submit Attendance"}
+                                            <Camera className="w-4 h-4" />
+                                            Enable Camera
                                         </button>
-                                        <button
-                                            onClick={() => {
-                                                setCaptured(null);
-                                                startCamera();
-                                            }}
-                                            className="px-4 py-2 rounded border text-sm"
-                                        >
-                                            Retake
-                                        </button>
+                                        {cameraError && (
+                                            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20">
+                                                <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                                <span className="text-xs text-red-600 dark:text-red-400">{cameraError}</span>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    <video ref={videoRef} autoPlay playsInline className="w-full rounded border border-zinc-200 dark:border-zinc-800" />
-                                    <div className="flex flex-wrap gap-2">
-                                        <button onClick={capturePhoto} className="px-4 py-2 rounded border text-sm">Capture</button>
-                                        <button onClick={stopCamera} className="px-4 py-2 rounded border text-sm">Stop</button>
+                                ) : captured ? (
+                                    <div className="space-y-4">
+                                        {/* Preview */}
+                                        <div className="relative rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 shadow-sm">
+                                            <img src={captured} alt="preview" className="w-full" />
+                                            <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-[10px] text-white font-medium flex items-center gap-1.5">
+                                                <Clock className="w-3 h-3" />
+                                                {format(currentTime, "hh:mm a")}
+                                            </div>
+                                            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-[10px] text-white font-medium">
+                                                Preview
+                                            </div>
+                                        </div>
+                                        {/* Action buttons */}
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={submitAttendance}
+                                                disabled={uploading}
+                                                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-teal-600 text-white text-sm font-semibold shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 disabled:opacity-60 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+                                            >
+                                                {uploading ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                        Submitting...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <CheckCircle2 className="w-4 h-4" />
+                                                        Submit Attendance
+                                                    </>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => { setCaptured(null); startCamera(); }}
+                                                className="px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                                            >
+                                                Retake
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="space-y-4">
+                                        {/* Live camera feed */}
+                                        <div className="relative rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 shadow-sm bg-black">
+                                            <video ref={videoRef} autoPlay playsInline className="w-full" />
+                                            <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-sm">
+                                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                                <span className="text-[10px] text-white font-medium">LIVE</span>
+                                            </div>
+                                            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-[10px] text-white font-medium flex items-center gap-1.5">
+                                                <Clock className="w-3 h-3" />
+                                                {format(currentTime, "hh:mm:ss a")}
+                                            </div>
+                                        </div>
+                                        {/* Camera controls */}
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={capturePhoto}
+                                                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-indigo-600 text-white text-sm font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-[0.98]"
+                                            >
+                                                <Camera className="w-4 h-4" />
+                                                Capture Photo
+                                            </button>
+                                            <button
+                                                onClick={() => { stopCamera(); setPermissionGranted(false); }}
+                                                className="px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
 
                             <canvas ref={canvasRef} className="hidden" />
                         </div>
 
-                        <div className="bg-white dark:bg-zinc-950 dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                                <div className="text-sm font-medium">Calendar</div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setCalendarMonth((prev) => subMonths(prev, 1))}
-                                        className="px-2 py-1 text-xs rounded border"
-                                    >
-                                        Prev
-                                    </button>
-                                    <select
-                                        value={calendarMonth.getMonth()}
-                                        onChange={(e) => setCalendarMonth((prev) => setMonth(prev, Number(e.target.value)))}
-                                        className="rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 px-2 py-1 text-xs"
-                                    >
-                                        {Array.from({ length: 12 }).map((_, idx) => (
-                                            <option key={`m2-${idx}`} value={idx}>
-                                                {format(new Date(2024, idx, 1), "MMM")}
-                                            </option>
+                        {/* Right Column — Calendar + Photo */}
+                        <div className="space-y-6">
+                            {/* Calendar card */}
+                            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+                                <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
+                                            <CalendarIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                        </div>
+                                        <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Attendance History</h3>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <button onClick={() => setCalendarMonth((prev) => subMonths(prev, 1))} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                                            <ChevronLeft className="w-4 h-4 text-zinc-500" />
+                                        </button>
+                                        <div className="flex items-center gap-1.5">
+                                            <select
+                                                value={calendarMonth.getMonth()}
+                                                onChange={(e) => setCalendarMonth((prev) => setMonth(prev, Number(e.target.value)))}
+                                                className="rounded-lg border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 px-2 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                            >
+                                                {Array.from({ length: 12 }).map((_, idx) => (
+                                                    <option key={`m2-${idx}`} value={idx}>
+                                                        {format(new Date(2024, idx, 1), "MMM")}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <select
+                                                value={calendarMonth.getFullYear()}
+                                                onChange={(e) => setCalendarMonth((prev) => setYear(prev, Number(e.target.value)))}
+                                                className="rounded-lg border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 px-2 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                            >
+                                                {yearOptions.map((year) => (
+                                                    <option key={`y2-${year}`} value={year}>{year}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <button onClick={() => setCalendarMonth((prev) => addMonths(prev, 1))} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                                            <ChevronRight className="w-4 h-4 text-zinc-500" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="p-4">
+                                    <div className="grid grid-cols-7 gap-1.5 text-center">
+                                        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d, idx) => (
+                                            <div key={`${d}-${idx}`} className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider py-1">{d}</div>
                                         ))}
-                                    </select>
-                                    <select
-                                        value={calendarMonth.getFullYear()}
-                                        onChange={(e) => setCalendarMonth((prev) => setYear(prev, Number(e.target.value)))}
-                                        className="rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 px-2 py-1 text-xs"
-                                    >
-                                        {yearOptions.map((year) => (
-                                            <option key={`y2-${year}`} value={year}>{year}</option>
-                                        ))}
-                                    </select>
-                                    <button
-                                        type="button"
-                                        onClick={() => setCalendarMonth((prev) => addMonths(prev, 1))}
-                                        className="px-2 py-1 text-xs rounded border"
-                                    >
-                                        Next
-                                    </button>
+                                        {(() => {
+                                            const firstDay = startOfMonth(calendarMonth);
+                                            const leading = firstDay.getDay();
+                                            return Array.from({ length: leading }).map((_, idx) => (
+                                                <div key={`empty-${idx}`} />
+                                            ));
+                                        })()}
+                                        {monthDays.map((day) => {
+                                            const key = format(day, "yyyy-MM-dd");
+                                            const ist = nowIST();
+                                            const isToday = isSameDay(day, ist);
+                                            const todayStart = new Date(ist.getFullYear(), ist.getMonth(), ist.getDate());
+                                            const isPast = day < todayStart;
+                                            const attendance = attendanceMap.get(key);
+
+                                            let cls = "bg-zinc-50 dark:bg-zinc-800/50 text-zinc-400 dark:text-zinc-500";
+                                            if (isToday && attendance) {
+                                                cls = "bg-emerald-500 dark:bg-emerald-600 text-white font-bold ring-2 ring-emerald-300 dark:ring-emerald-400 ring-offset-1 ring-offset-white dark:ring-offset-zinc-900";
+                                            } else if (isToday && !attendance) {
+                                                cls = "bg-red-500 dark:bg-red-600 text-white font-bold ring-2 ring-red-300 dark:ring-red-400 ring-offset-1 ring-offset-white dark:ring-offset-zinc-900";
+                                            } else if (isPast && attendance) {
+                                                cls = "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-medium";
+                                            } else if (isPast) {
+                                                cls = "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500";
+                                            }
+
+                                            return (
+                                                <div
+                                                    key={key}
+                                                    className={`w-full aspect-square rounded-lg flex items-center justify-center text-xs ${cls}`}
+                                                >
+                                                    {day.getDate()}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    {/* Legend */}
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+                                            <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Present</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-2.5 h-2.5 rounded-sm bg-red-500" />
+                                            <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Absent</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-2.5 h-2.5 rounded-sm bg-zinc-200 dark:bg-zinc-700" />
+                                            <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Upcoming</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-7 gap-2 text-center text-xs">
-                                {["S", "M", "T", "W", "T", "F", "S"].map((d, idx) => (
-                                    <div key={`${d}-${idx}`} className="text-zinc-500">{d}</div>
-                                ))}
-                                {(() => {
-                                    const firstDay = startOfMonth(calendarMonth);
-                                    const leading = firstDay.getDay();
-                                    return Array.from({ length: leading }).map((_, idx) => (
-                                        <div key={`empty-${idx}`} />
-                                    ));
-                                })()}
-                                {monthDays.map((day) => {
-                                    const key = format(day, "yyyy-MM-dd");
-                                    const isToday = isSameDay(day, new Date());
-                                    const isPast = day < new Date(new Date().setHours(0, 0, 0, 0));
-                                    const attendance = attendanceMap.get(key);
 
-                                    let bg = "bg-zinc-200 dark:bg-zinc-800";
-                                    if (isToday) {
-                                        bg = attendance ? "bg-emerald-500 text-white" : "bg-red-500 text-white";
-                                    } else if (isPast) {
-                                        bg = "bg-zinc-300 dark:bg-zinc-700";
-                                    }
-
-                                    return (
-                                        <div key={key} className={`w-9 h-9 rounded flex items-center justify-center ${bg}`}>
-                                            {day.getDate()}
+                            {/* Today's small preview (non-clickable) */}
+                            {todayAttendance?.imageUrl && (
+                                <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+                                    <div className="p-3 flex items-center gap-3">
+                                        <div className="w-14 h-14 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 flex-shrink-0">
+                                            <img
+                                                src={todayAttendance.imageUrl}
+                                                alt="today"
+                                                className="w-full h-full object-cover"
+                                            />
                                         </div>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="mt-4">
-                                <div className="text-xs text-zinc-500 mb-2">Today’s Photo</div>
-                                {todayAttendance?.imageUrl ? (
-                                    <div className="cursor-pointer group">
-                                        <img 
-                                            src={todayAttendance.imageUrl} 
-                                            alt="today" 
-                                            className="w-full rounded border border-zinc-200 dark:border-zinc-800 group-hover:opacity-75 transition-opacity"
-                                            onClick={() => setSelectedPhoto(todayAttendance)}
-                                        />
-                                        {todayAttendance.createdAt && (
-                                            <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
-                                                {format(new Date(todayAttendance.createdAt), "HH:mm:ss")}
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <CheckCircle2 className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                                                <span className="text-xs font-semibold text-zinc-900 dark:text-white">Attendance Submitted</span>
                                             </div>
-                                        )}
+                                            {todayAttendance.createdAt && (
+                                                <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                                                    {format(toIST(todayAttendance.createdAt), "hh:mm a")} · {format(currentTime, "MMM dd")}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
-                                ) : (
-                                    <div className="w-full h-32 rounded border border-dashed border-zinc-300 dark:border-zinc-700 text-xs text-zinc-500 flex items-center justify-center">
-                                        No photo yet
-                                    </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -625,7 +780,7 @@ const Attendance = () => {
                             <div>
                                 {selectedPhoto.createdAt && (
                                     <div className="text-white text-sm">
-                                        {format(new Date(selectedPhoto.createdAt), "EEEE, MMMM dd, yyyy HH:mm:ss")}
+                                        {format(toIST(selectedPhoto.createdAt), "EEEE, MMMM dd, yyyy hh:mm:ss a")}
                                     </div>
                                 )}
                             </div>

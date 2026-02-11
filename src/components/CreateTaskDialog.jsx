@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { addTask } from "../features/workspaceSlice";
 import { useAuth } from "../auth/AuthContext";
 import { format } from "date-fns";
+import { toIST, todayKeyIST } from "../configs/timezone";
 import toast from "react-hot-toast";
 import api from "../configs/api";
 import QuillEditor from "./QuillEditor";
@@ -256,11 +257,11 @@ export default function CreateTaskDialog({ showCreateTask, setShowCreateTask, pr
                                     <label className="text-sm font-medium">Due Date</label>
                                     <div className="flex items-center gap-2">
                                         <CalendarIcon className="size-5 text-zinc-500 dark:text-zinc-400" />
-                                        <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} min={new Date().toISOString().split('T')[0]} className="w-full rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-zinc-200 text-sm mt-1" />
+                                        <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} min={todayKeyIST()} className="w-full rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-zinc-200 text-sm mt-1" />
                                     </div>
                                     {formData.due_date && (
                                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                            {format(new Date(formData.due_date), "PPP")}
+                                            {format(toIST(formData.due_date), "PPP")}
                                         </p>
                                     )}
                                 </div>

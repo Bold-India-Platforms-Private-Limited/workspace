@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { CheckCircle, Clock, AlertTriangle, Users, ArrowRightIcon } from "lucide-react";
+import { nowIST } from "../configs/timezone";
 
 // Colors for charts and priorities
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
@@ -12,7 +13,7 @@ const PRIORITY_COLORS = {
 
 const ProjectAnalytics = ({ project, tasks }) => {
     const { stats, statusData, typeData, priorityData } = useMemo(() => {
-        const now = new Date();
+        const now = nowIST();
         const total = tasks.length;
 
         const stats = {

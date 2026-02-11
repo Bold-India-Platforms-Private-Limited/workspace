@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ArrowRight, Clock, AlertTriangle, User } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useSelector } from "react-redux";
+import { nowIST } from "../configs/timezone";
 import { useNavigate } from "react-router-dom";
 
 export default function TasksSummary() {
@@ -30,7 +31,7 @@ export default function TasksSummary() {
         task.groups?.some((tg) => userGroupIds.has(tg.groupId || tg.group?.id))
     );
     const visibleTasks = isMember ? myTasks : tasks;
-    const overdueTasks = visibleTasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'DONE');
+    const overdueTasks = visibleTasks.filter(t => t.due_date && new Date(t.due_date) < nowIST() && t.status !== 'DONE');
     const inProgressIssues = visibleTasks.filter(i => i.status === 'IN_PROGRESS');
 
     const summaryCards = [

@@ -3,6 +3,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useSelector } from "react-redux";
 import api from "../configs/api";
 import { Mail, Search, MessageCircle, Eye } from "lucide-react";
+import { TIMEZONE } from "../configs/timezone";
 import toast from "react-hot-toast";
 
 const PAGE_SIZE = 20;
@@ -226,7 +227,7 @@ const EmailMonitor = () => {
                                         </td>
                                         <td className="px-4 sm:px-6 py-3">
                                             <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                                                {email.sentAt ? new Date(email.sentAt).toLocaleString() : "Not sent"}
+                                                {email.sentAt ? new Date(email.sentAt).toLocaleString("en-IN", { timeZone: TIMEZONE }) : "Not sent"}
                                             </div>
                                         </td>
                                         <td className="px-4 sm:px-6 py-3 text-center">
@@ -321,7 +322,7 @@ const EmailMonitor = () => {
                                             Sent Date
                                         </div>
                                         <div className="text-sm font-medium text-zinc-900 dark:text-white">
-                                            {selectedEmail.sentAt ? new Date(selectedEmail.sentAt).toLocaleString() : "Not sent"}
+                                            {selectedEmail.sentAt ? new Date(selectedEmail.sentAt).toLocaleString("en-IN", { timeZone: TIMEZONE }) : "Not sent"}
                                         </div>
                                     </div>
                                 </div>

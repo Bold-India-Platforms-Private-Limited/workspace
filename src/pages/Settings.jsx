@@ -3,6 +3,7 @@ import { UserIcon, Shield, LogOut, Trash } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { nowIST, TIMEZONE } from "../configs/timezone";
 import { fetchWorkspaces } from "../features/workspaceSlice";
 import { useSearchParams } from "react-router-dom";
 import api from "../configs/api";
@@ -23,7 +24,7 @@ export default function Settings() {
     const [clientInfo, setClientInfo] = useState(null);
     const [clientInfoLoading, setClientInfoLoading] = useState(false);
     const [clientInfoError, setClientInfoError] = useState("");
-    const [currentTime, setCurrentTime] = useState(new Date());
+    const [currentTime, setCurrentTime] = useState(nowIST());
     const [notificationForm, setNotificationForm] = useState({
         title: "",
         subtitle: "",
@@ -83,7 +84,7 @@ export default function Settings() {
     }, [searchParams]);
 
     useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        const timer = setInterval(() => setCurrentTime(nowIST()), 1000);
         return () => clearInterval(timer);
     }, []);
 
@@ -276,7 +277,7 @@ export default function Settings() {
                                         </div>
                                         <div>
                                             <div className="text-zinc-500">Date Time</div>
-                                            <div className="text-zinc-900 dark:text-zinc-200">{currentTime.toLocaleString()}</div>
+                                            <div className="text-zinc-900 dark:text-zinc-200">{currentTime.toLocaleString("en-IN", { timeZone: TIMEZONE })} IST</div>
                                         </div>
                                         <div>
                                             <div className="text-zinc-500">Browser</div>

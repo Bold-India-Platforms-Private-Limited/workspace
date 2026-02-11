@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { GitCommit, MessageSquare, Clock, Bug, Zap, Square } from "lucide-react";
 import { format } from "date-fns";
+import { toIST } from "../configs/timezone";
 import { useSelector } from "react-redux";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -131,7 +132,7 @@ const RecentActivity = () => {
                                                     );
                                                 })()}
                                                 <span>
-                                                    {format(new Date(task.updatedAt), "MMM d, h:mm a")}
+                                                    {format(toIST(task.updatedAt), "MMM d, h:mm a")}
                                                 </span>
                                             </div>
                                         </div>

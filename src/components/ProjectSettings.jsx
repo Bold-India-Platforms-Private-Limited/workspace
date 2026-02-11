@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { toIST } from "../configs/timezone";
 import { useDispatch } from "react-redux";
 import { Save, Trash } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -145,11 +146,11 @@ export default function ProjectSettings({ project }) {
                     <div className="space-y-4 grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className={labelClasses}>Start Date</label>
-                            <input type="date" value={format(formData.start_date, "yyyy-MM-dd")} onChange={(e) => setFormData({ ...formData, start_date: new Date(e.target.value) })} className={inputClasses} />
+                            <input type="date" value={format(toIST(formData.start_date), "yyyy-MM-dd")} onChange={(e) => setFormData({ ...formData, start_date: new Date(e.target.value) })} className={inputClasses} />
                         </div>
                         <div className="space-y-2">
                             <label className={labelClasses}>End Date</label>
-                            <input type="date" value={format(formData.end_date, "yyyy-MM-dd")} onChange={(e) => setFormData({ ...formData, end_date: new Date(e.target.value) })} className={inputClasses} />
+                            <input type="date" value={format(toIST(formData.end_date), "yyyy-MM-dd")} onChange={(e) => setFormData({ ...formData, end_date: new Date(e.target.value) })} className={inputClasses} />
                         </div>
                     </div>
 

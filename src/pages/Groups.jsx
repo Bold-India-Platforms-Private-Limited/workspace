@@ -3,6 +3,7 @@ import api from "../configs/api";
 import { useSelector } from "react-redux";
 import { ArrowLeft, UsersIcon, MessageCircle, Trash2, Search, Send, MessageSquareOff } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import { toIST, nowIST, TIMEZONE } from "../configs/timezone";
 import toast from "react-hot-toast";
 
 const PAGE_SIZE = 200;
@@ -499,9 +500,9 @@ const Groups = () => {
                                     const hasNew = lastMsg && seenMessages[group.id] !== lastMsg.id;
                                     const lastMsgTime = lastMsg?.createdAt ? new Date(lastMsg.createdAt) : null;
                                     const timeStr = lastMsgTime
-                                        ? (new Date().toDateString() === lastMsgTime.toDateString()
-                                            ? lastMsgTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                                            : lastMsgTime.toLocaleDateString([], { month: "short", day: "numeric" }))
+                                        ? (nowIST().toDateString() === toIST(lastMsgTime).toDateString()
+                                            ? toIST(lastMsgTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: TIMEZONE })
+                                            : toIST(lastMsgTime).toLocaleDateString("en-IN", { month: "short", day: "numeric", timeZone: TIMEZONE }))
                                         : null;
                                     const isSelected = selectedGroupsForDelete.has(group.id);
                                     return (
@@ -670,7 +671,7 @@ const Groups = () => {
                                                         {msg.content}
                                                     </div>
                                                     <span className={`text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5 ${isMe ? "mr-1 text-right" : "ml-1"}`}>
-                                                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                                        {toIST(msg.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: TIMEZONE })}
                                                     </span>
                                                 </div>
                                             </div>

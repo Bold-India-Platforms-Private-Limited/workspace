@@ -1,6 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { format, isSameDay, isBefore, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from "date-fns";
 import { CalendarIcon, Clock, User, ChevronLeft, ChevronRight } from "lucide-react";
+import { useAuth } from "../auth/AuthContext";
+import { useSelector } from "react-redux";
+import { nowIST } from "../configs/timezone";
 
 const typeColors = {
     BUG: "bg-red-200 text-red-800 dark:bg-red-500 dark:text-red-900",
@@ -17,10 +20,38 @@ const priorityBorders = {
 };
 
 const ProjectCalendar = ({ tasks }) => {
-    const [selectedDate, setSelectedDate] = useState(new Date());
-    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(nowIST());
+    const [currentMonth, setCurrentMonth] = useState(nowIST());
+    const { user } = useAuth();
+    const currentWorkspace = useSelector((state) => state?.workspace?.currentWorkspace || null);
+    const isMember = user?.role !== "ADMIN";
 
-    const today = new Date();
+    const userGroupIds = useMemo(() => {
+        if (!user?.id || !currentWorkspace) return new Set();
+        return new Set(
+            (currentWorkspace.groups || [])
+                .filter((group) => group.members?.some((m) => m.userId === user.id))
+                .map((group) => group.id)
+        );
+    }, [currentWorkspace, user]);
+
+    const userGroupMemberIds = useMemo(() => {
+        if (!isMember || !currentWorkspace) return null;
+        const ids = new Set();
+        (currentWorkspace.groups || []).forEach((group) => {
+            if (userGroupIds.has(group.id)) {
+                (group.members || []).forEach((m) => ids.add(m.userId));
+            }
+        });
+        return ids;
+    }, [isMember, currentWorkspace, userGroupIds]);
+
+    const filterAssignees = (assignees) => {
+        if (!isMember || !userGroupMemberIds) return assignees || [];
+        return (assignees || []).filter((a) => userGroupMemberIds.has(a.userId));
+    };
+
+    const today = nowIST();
     const getTasksForDate = (date) => tasks.filter((task) => isSameDay(task.due_date, date));
 
     const upcomingTasks = tasks
@@ -111,13 +142,16 @@ const ProjectCalendar = ({ tasks }) => {
                                     </div>
                                     <div className="flex justify-between text-xs text-zinc-600 dark:text-zinc-400">
                                         <span className="capitalize">{task.priority.toLowerCase()} priority</span>
-                                        {(task.assignees || []).length > 0 && (
-                                            <span className="flex items-center gap-1">
-                                                <User className="w-3 h-3" />
-                                                {task.assignees[0].user?.name || task.assignees[0].user?.email}
-                                                {task.assignees.length > 1 ? ` +${task.assignees.length - 1}` : ""}
-                                            </span>
-                                        )}
+                                        {(() => {
+                                            const displayAssignees = filterAssignees(task.assignees);
+                                            return displayAssignees.length > 0 && (
+                                                <span className="flex items-center gap-1">
+                                                    <User className="w-3 h-3" />
+                                                    {displayAssignees[0].user?.name || displayAssignees[0].user?.email}
+                                                    {displayAssignees.length > 1 ? ` +${displayAssignees.length - 1}` : ""}
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             ))}

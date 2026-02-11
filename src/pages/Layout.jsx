@@ -205,103 +205,84 @@ const Layout = () => {
         )
     }
 
-    // Modern Light Blue Loading Screen
+    // Global Loading Screen
     if (loading) {
         return (
-            <div className="relative flex items-center justify-center min-h-screen overflow-hidden bg-white dark:from-zinc-950 dark:via-blue-950/20 dark:to-purple-950/10">
-                {/* Subtle background elements */}
+            <div className="relative flex items-center justify-center min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/30 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950">
+                {/* Mesh gradient blobs */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    {/* Top circle */}
-                    <div 
-                        className="absolute w-[500px] h-[500px] bg-blue-500/8 dark:from-blue-500/25 dark:to-purple-500/25 rounded-full blur-3xl"
-                        style={{
-                            top: '10%',
-                            left: '15%',
-                            animation: 'pulse-slow 4s ease-in-out infinite',
-                        }}
-                    />
-                    {/* Bottom circle */}
-                    <div 
-                        className="absolute w-[400px] h-[400px] bg-blue-400/8 dark:from-purple-500/25 dark:to-pink-500/25 rounded-full blur-3xl"
-                        style={{
-                            bottom: '15%',
-                            right: '10%',
-                            animation: 'pulse-slow 5s ease-in-out infinite reverse',
-                        }}
-                    />
-                    {/* Grid overlay */}
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(59_130_246/0.04)_1px,transparent_1px)] dark:bg-[radial-gradient(circle_at_1px_1px,rgb(59_130_246/0.1)_1px,transparent_1px)] [background-size:40px_40px]" />
+                    <div className="absolute w-[600px] h-[600px] rounded-full blur-[120px] opacity-30 dark:opacity-20" style={{ background: 'radial-gradient(circle, #3b82f6, transparent 70%)', top: '-15%', left: '-10%', animation: 'mesh-drift 8s ease-in-out infinite' }} />
+                    <div className="absolute w-[500px] h-[500px] rounded-full blur-[100px] opacity-20 dark:opacity-15" style={{ background: 'radial-gradient(circle, #6366f1, transparent 70%)', bottom: '-10%', right: '-5%', animation: 'mesh-drift 10s ease-in-out infinite reverse' }} />
+                    <div className="absolute w-[300px] h-[300px] rounded-full blur-[80px] opacity-15 dark:opacity-10" style={{ background: 'radial-gradient(circle, #8b5cf6, transparent 70%)', top: '40%', right: '20%', animation: 'mesh-drift 12s ease-in-out infinite 2s' }} />
                 </div>
 
-                <div className="relative z-10 flex flex-col items-center justify-center gap-8 sm:gap-10 max-w-sm sm:max-w-md px-4">
-                    {/* Clean modern loader */}
-                    <div className="relative w-20 h-20 sm:w-24 sm:h-24">
-                        {/* Outer ring */}
-                        <div className="absolute inset-0 rounded-full border-4 border-gray-200 dark:border-zinc-800" />
-                        
-                        {/* Animated blue ring */}
-                        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-600 dark:border-t-blue-400 animate-spin" />
-                        
-                        {/* Inner circle */}
-                        <div className="absolute inset-3 rounded-full bg-blue-600 dark:bg-gradient-to-br dark:from-blue-400 dark:via-purple-400 dark:to-pink-400 animate-pulse opacity-20" />
-                        
-                        {/* Center pulse */}
+                <div className="relative z-10 flex flex-col items-center justify-center gap-10 sm:gap-12 max-w-sm sm:max-w-md px-6">
+                    {/* Orbital loader */}
+                    <div className="relative w-28 h-28 sm:w-32 sm:h-32">
+                        {/* Orbit rings */}
+                        <div className="absolute inset-0 rounded-full border border-blue-200/60 dark:border-blue-500/20" style={{ animation: 'orbit-spin 3s linear infinite' }} >
+                            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-blue-500 dark:bg-blue-400 shadow-lg shadow-blue-500/50" />
+                        </div>
+                        <div className="absolute inset-3 rounded-full border border-indigo-200/50 dark:border-indigo-500/15" style={{ animation: 'orbit-spin 4s linear infinite reverse' }} >
+                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-indigo-400 dark:bg-indigo-400 shadow-lg shadow-indigo-400/50" />
+                        </div>
+                        <div className="absolute inset-6 rounded-full border border-violet-200/40 dark:border-violet-500/15" style={{ animation: 'orbit-spin 5s linear infinite' }} >
+                            <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-violet-400 dark:bg-violet-400 shadow-lg shadow-violet-400/50" />
+                        </div>
+                        {/* Center icon */}
                         <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-3 h-3 rounded-full bg-blue-600 dark:bg-white dark:dark:bg-zinc-900 animate-ping" />
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 dark:from-blue-500 dark:to-purple-600 shadow-xl shadow-blue-500/25 dark:shadow-blue-500/30 flex items-center justify-center" style={{ animation: 'center-breathe 2.5s ease-in-out infinite' }}>
+                                <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Quote card - clean white */}
-                    <div className="bg-white dark:bg-zinc-900/60 dark:border dark:border-zinc-700/50 rounded-2xl p-6 sm:p-8 shadow-xl shadow-blue-600/5 dark:shadow-xl text-center space-y-4 max-w-full transition-all duration-500">
-                        <div className="text-4xl sm:text-5xl transition-all duration-300">
+                    {/* Quote card */}
+                    <div className="w-full bg-white/70 dark:bg-zinc-900/60 backdrop-blur-xl border border-white/80 dark:border-zinc-700/40 rounded-3xl p-6 sm:p-8 shadow-lg shadow-blue-500/[0.03] dark:shadow-black/20 text-center space-y-3">
+                        <div className="text-3xl sm:text-4xl transition-all duration-500" style={{ animation: 'fade-swap 3s ease-in-out infinite' }}>
                             {quotes[currentQuoteIndex].emoji}
                         </div>
-                        <p className="text-base sm:text-lg font-semibold text-gray-900 dark:from-zinc-100 dark:via-zinc-200 dark:to-zinc-100 dark:bg-clip-text dark:text-transparent leading-relaxed transition-all duration-500 px-2">
+                        <p className="text-sm sm:text-base font-medium text-gray-700 dark:text-zinc-300 leading-relaxed transition-all duration-500">
                             {quotes[currentQuoteIndex].text}
                         </p>
                     </div>
 
-                    {/* Progress bar */}
-                    <div className="w-full max-w-xs sm:max-w-sm space-y-3">
-                        {/* Clean progress track */}
-                        <div className="relative h-1.5 bg-gray-200 dark:bg-zinc-800/50 dark:backdrop-blur-sm dark:border dark:border-white/20 dark:dark:border-zinc-700/30 rounded-full overflow-hidden">
-                            <div 
-                                className="absolute inset-0 bg-blue-600 dark:bg-gradient-to-r dark:from-blue-500 dark:via-purple-500 dark:to-pink-500 rounded-full"
-                                style={{
-                                    animation: 'progress 2s ease-in-out infinite',
-                                }}
-                            />
+                    {/* Wave progress */}
+                    <div className="w-full max-w-xs space-y-4">
+                        <div className="relative h-1 bg-gray-200/80 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div className="absolute h-full w-1/3 rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 dark:from-blue-400 dark:via-purple-400 dark:to-pink-400" style={{ animation: 'wave-slide 1.8s ease-in-out infinite' }} />
                         </div>
-
-                        {/* Status */}
-                        <div className="flex items-center justify-center gap-2">
-                            <div className="flex gap-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-500 animate-pulse" />
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-purple-500 animate-pulse" style={{ animationDelay: '0.2s' }} />
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-pink-500 animate-pulse" style={{ animationDelay: '0.4s' }} />
-                            </div>
-                            <p className="text-xs sm:text-sm text-gray-600 dark:text-zinc-400 font-medium">
-                                Loading workspace
-                            </p>
-                        </div>
+                        <p className="text-center text-xs text-gray-400 dark:text-zinc-500 font-medium tracking-widest uppercase">
+                            Loading workspace
+                        </p>
                     </div>
                 </div>
 
                 <style>{`
-                    @keyframes pulse-slow {
-                        0%, 100% { 
-                            opacity: 0.3;
-                            transform: scale(1);
-                        }
-                        50% { 
-                            opacity: 0.5;
-                            transform: scale(1.05);
-                        }
+                    @keyframes mesh-drift {
+                        0%, 100% { transform: translate(0, 0) scale(1); }
+                        33% { transform: translate(30px, -20px) scale(1.05); }
+                        66% { transform: translate(-20px, 15px) scale(0.95); }
                     }
-                    @keyframes progress {
-                        0% { transform: translateX(-100%); }
-                        50% { transform: translateX(0%); }
-                        100% { transform: translateX(100%); }
+                    @keyframes orbit-spin {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                    @keyframes center-breathe {
+                        0%, 100% { transform: scale(1); opacity: 1; }
+                        50% { transform: scale(0.92); opacity: 0.85; }
+                    }
+                    @keyframes fade-swap {
+                        0%, 100% { opacity: 1; transform: translateY(0); }
+                        45% { opacity: 1; }
+                        50% { opacity: 0.4; transform: translateY(-2px); }
+                        55% { opacity: 1; }
+                    }
+                    @keyframes wave-slide {
+                        0% { left: -33%; }
+                        100% { left: 100%; }
                     }
                 `}</style>
             </div>

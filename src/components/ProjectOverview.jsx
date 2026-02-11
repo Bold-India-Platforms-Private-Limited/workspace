@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Calendar, UsersIcon, FolderOpen } from "lucide-react";
 import { format } from "date-fns";
+import { toIST } from "../configs/timezone";
 import { useSelector } from "react-redux";
 import CreateProjectDialog from "./CreateProjectDialog";
 import { useAuth } from "../auth/AuthContext";
@@ -103,7 +104,7 @@ const ProjectOverview = () => {
                                         {project.end_date && (
                                             <div className="flex items-center gap-1">
                                                 <Calendar className="w-3 h-3" />
-                                                {format(new Date(project.end_date), "MMM d, yyyy")}
+                                                {format(toIST(project.end_date), "MMM d, yyyy")}
                                             </div>
                                         )}
                                     </div>

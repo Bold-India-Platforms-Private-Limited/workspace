@@ -4,6 +4,7 @@ import { useDispatch } from "react-redux";
 import { updateTask } from "../features/workspaceSlice";
 import { useAuth } from "../auth/AuthContext";
 import { format } from "date-fns";
+import { toIST } from "../configs/timezone";
 import toast from "react-hot-toast";
 import api from "../configs/api";
 import QuillEditor from "./QuillEditor";
@@ -46,7 +47,7 @@ export default function EditTaskDialog({ isOpen, onClose, task, groups }) {
             type: task.type || "TASK",
             status: task.status || "TODO",
             priority: task.priority || "MEDIUM",
-            due_date: task.due_date ? format(new Date(task.due_date), "yyyy-MM-dd") : "",
+            due_date: task.due_date ? format(toIST(task.due_date), "yyyy-MM-dd") : "",
             groupIds: taskGroupIds,
         });
 

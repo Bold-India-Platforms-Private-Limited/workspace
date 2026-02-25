@@ -9,6 +9,107 @@ import { useAuth } from '../auth/AuthContext'
 import { toast } from 'react-hot-toast'
 import CreateWorkspaceDialog from '../components/CreateWorkspaceDialog'
 
+const SkeletonPulse = ({ className = "" }) => (
+    <div className={`animate-pulse rounded bg-zinc-200 dark:bg-zinc-800 ${className}`} />
+)
+
+const DashboardSkeleton = () => (
+    <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="space-y-2">
+                <SkeletonPulse className="h-7 w-56" />
+                <SkeletonPulse className="h-4 w-72" />
+            </div>
+            <SkeletonPulse className="h-10 w-36 rounded" />
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 my-9">
+            {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-6 py-4">
+                    <div className="flex items-start justify-between">
+                        <div className="space-y-2 flex-1">
+                            <SkeletonPulse className="h-4 w-24" />
+                            <SkeletonPulse className="h-9 w-12" />
+                            <SkeletonPulse className="h-3 w-20" />
+                        </div>
+                        <SkeletonPulse className="h-11 w-11 rounded-xl" />
+                    </div>
+                </div>
+            ))}
+        </div>
+
+        {/* Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+            <div className="lg:col-span-2 space-y-6 sm:space-y-8">
+                {/* Project Overview Skeleton */}
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+                    <div className="border-b border-zinc-200 dark:border-zinc-800 p-4 flex justify-between">
+                        <SkeletonPulse className="h-5 w-32" />
+                        <SkeletonPulse className="h-5 w-16" />
+                    </div>
+                    {[...Array(3)].map((_, i) => (
+                        <div key={i} className="p-6 border-b border-zinc-200 dark:border-zinc-800 last:border-0">
+                            <div className="flex justify-between mb-3">
+                                <div className="space-y-2 flex-1">
+                                    <SkeletonPulse className="h-5 w-48" />
+                                    <SkeletonPulse className="h-4 w-64" />
+                                </div>
+                                <SkeletonPulse className="h-6 w-16 rounded" />
+                            </div>
+                            <SkeletonPulse className="h-1.5 w-full rounded mt-4" />
+                        </div>
+                    ))}
+                </div>
+
+                {/* Recent Activity Skeleton */}
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+                    <div className="border-b border-zinc-200 dark:border-zinc-800 p-4">
+                        <SkeletonPulse className="h-5 w-32" />
+                    </div>
+                    {[...Array(3)].map((_, i) => (
+                        <div key={i} className="p-6 border-b border-zinc-200 dark:border-zinc-800 last:border-0">
+                            <div className="flex items-start gap-4">
+                                <SkeletonPulse className="h-8 w-8 rounded-lg shrink-0" />
+                                <div className="flex-1 space-y-2">
+                                    <SkeletonPulse className="h-5 w-44" />
+                                    <SkeletonPulse className="h-3 w-32" />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-6">
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+                        <div className="border-b border-zinc-200 dark:border-zinc-800 p-4 pb-3">
+                            <div className="flex items-center gap-3">
+                                <SkeletonPulse className="h-8 w-8 rounded-lg" />
+                                <div className="flex-1 flex justify-between items-center">
+                                    <SkeletonPulse className="h-4 w-20" />
+                                    <SkeletonPulse className="h-6 w-8 rounded" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 space-y-3">
+                            {[...Array(2)].map((_, j) => (
+                                <div key={j} className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900">
+                                    <SkeletonPulse className="h-4 w-36 mb-2" />
+                                    <SkeletonPulse className="h-3 w-28" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+)
+
 const Layout = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const { user, login, getToken, isAuthenticated } = useAuth()
@@ -17,43 +118,15 @@ const Layout = () => {
     const [formData, setFormData] = useState({ email: "", password: "" })
     const [isLoggingIn, setIsLoggingIn] = useState(false)
     const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false)
-    const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0)
-
-    const quotes = [
-        { text: "Take a long breath... you've got this! 💪", emoji: "❤️" },
-        { text: "Every great project starts here ✨", emoji: "⭐" },
-        { text: "Stay focused, you're doing amazing!", emoji: "🎯" },
-        { text: "Your success is just a moment away ⏳", emoji: "✨" },
-        { text: "Breathe in... exhale... relax 🧘", emoji: "🌿" },
-        { text: "You're stronger than you think 💪", emoji: "🔥" },
-        { text: "Keep pushing, the best is coming!", emoji: "🚀" },
-        { text: "Believe in yourself, you've got it! 💫", emoji: "🌟" },
-        { text: "Take a deep breath and smile 😊", emoji: "🎉" },
-        { text: "Loading greatness... just for you!", emoji: "👑" },
-        { text: "Your workspace is almost ready 🎪", emoji: "🎨" },
-        { text: "Motivation: ON ✓ Confidence: HIGH 📈", emoji: "💯" },
-        { text: "Embrace the moment - you've got this!", emoji: "🦾" },
-        { text: "Every second counts - stay patient 🏆", emoji: "⏱️" },
-        { text: "Dream big, work smart, stay humble 🌈", emoji: "💎" },
-        { text: "Power up! Your projects await ⚡", emoji: "🔋" },
-    ]
 
     // Initial load of theme
     useEffect(() => {
         dispatch(loadTheme())
     }, [])
 
-    // Quote rotation
+    // Initial load of workspaces — always fetch fresh data (cache provides instant UI)
     useEffect(() => {
-        const quoteInterval = setInterval(() => {
-            setCurrentQuoteIndex((prev) => (prev + 1) % quotes.length)
-        }, 3000)
-        return () => clearInterval(quoteInterval)
-    }, [quotes.length])
-
-    // Initial load of workspaces
-    useEffect(() => {
-        if (isAuthenticated && user && workspaces.length === 0) {
+        if (isAuthenticated && user) {
             dispatch(fetchWorkspaces({ getToken }))
         }
     }, [user, isAuthenticated])
@@ -80,7 +153,7 @@ const Layout = () => {
                 {/* Subtle animated shapes - light blue theme */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     {/* Top right circle */}
-                    <div 
+                    <div
                         className="absolute w-96 h-96 bg-blue-500/5 dark:from-blue-500/20 dark:to-purple-500/20 rounded-full blur-3xl"
                         style={{
                             top: '-10%',
@@ -89,7 +162,7 @@ const Layout = () => {
                         }}
                     />
                     {/* Bottom left circle */}
-                    <div 
+                    <div
                         className="absolute w-80 h-80 bg-blue-400/5 dark:from-purple-500/20 dark:to-pink-500/20 rounded-full blur-3xl"
                         style={{
                             bottom: '-10%',
@@ -117,8 +190,8 @@ const Layout = () => {
                     </div>
 
                     {/* Clean White Card */}
-                    <form 
-                        onSubmit={handleLogin} 
+                    <form
+                        onSubmit={handleLogin}
                         className="bg-white dark:bg-zinc-900/70 dark:border dark:border-zinc-700/50 rounded-3xl p-6 sm:p-8 shadow-xl shadow-blue-600/5 dark:shadow-black/30 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-600/10"
                     >
                         <div className="space-y-5">
@@ -159,9 +232,9 @@ const Layout = () => {
                             </div>
 
                             {/* Sign In Button */}
-                            <button 
-                                type="submit" 
-                                disabled={isLoggingIn} 
+                            <button
+                                type="submit"
+                                disabled={isLoggingIn}
                                 className="group relative w-full py-3.5 rounded-xl bg-blue-600 dark:bg-gradient-to-r dark:from-blue-500 dark:via-purple-500 dark:to-pink-500 text-white text-sm font-semibold shadow-lg shadow-blue-600/30 dark:shadow-blue-500/30 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/40 dark:hover:shadow-blue-500/60 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                             >
                                 <span className="flex items-center justify-center gap-2">
@@ -205,86 +278,45 @@ const Layout = () => {
         )
     }
 
-    // Global Loading Screen
+    // Loading state — show skeleton inside the real layout shell
     if (loading) {
         return (
-            <div className="relative flex items-center justify-center min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/30 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950">
-                {/* Mesh gradient blobs */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute w-[600px] h-[600px] rounded-full blur-[120px] opacity-30 dark:opacity-20" style={{ background: 'radial-gradient(circle, #3b82f6, transparent 70%)', top: '-15%', left: '-10%', animation: 'mesh-drift 8s ease-in-out infinite' }} />
-                    <div className="absolute w-[500px] h-[500px] rounded-full blur-[100px] opacity-20 dark:opacity-15" style={{ background: 'radial-gradient(circle, #6366f1, transparent 70%)', bottom: '-10%', right: '-5%', animation: 'mesh-drift 10s ease-in-out infinite reverse' }} />
-                    <div className="absolute w-[300px] h-[300px] rounded-full blur-[80px] opacity-15 dark:opacity-10" style={{ background: 'radial-gradient(circle, #8b5cf6, transparent 70%)', top: '40%', right: '20%', animation: 'mesh-drift 12s ease-in-out infinite 2s' }} />
+            <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
+                {/* Sidebar skeleton */}
+                <div className="z-10 bg-white dark:bg-zinc-900 w-68 min-w-68 max-w-68 flex-col h-screen border-r border-gray-200 dark:border-zinc-800 max-sm:hidden flex">
+                    <div className="p-4 space-y-3">
+                        <SkeletonPulse className="h-10 w-full rounded-lg" />
+                    </div>
+                    <hr className="border-gray-200 dark:border-zinc-800" />
+                    <div className="p-4 space-y-2">
+                        {[...Array(6)].map((_, i) => (
+                            <SkeletonPulse key={i} className="h-9 w-full rounded" />
+                        ))}
+                    </div>
+                    <div className="p-4 space-y-2 mt-4">
+                        <SkeletonPulse className="h-4 w-20 mb-3" />
+                        {[...Array(3)].map((_, i) => (
+                            <SkeletonPulse key={i} className="h-7 w-full rounded" />
+                        ))}
+                    </div>
                 </div>
-
-                <div className="relative z-10 flex flex-col items-center justify-center gap-10 sm:gap-12 max-w-sm sm:max-w-md px-6">
-                    {/* Orbital loader */}
-                    <div className="relative w-28 h-28 sm:w-32 sm:h-32">
-                        {/* Orbit rings */}
-                        <div className="absolute inset-0 rounded-full border border-blue-200/60 dark:border-blue-500/20" style={{ animation: 'orbit-spin 3s linear infinite' }} >
-                            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-blue-500 dark:bg-blue-400 shadow-lg shadow-blue-500/50" />
-                        </div>
-                        <div className="absolute inset-3 rounded-full border border-indigo-200/50 dark:border-indigo-500/15" style={{ animation: 'orbit-spin 4s linear infinite reverse' }} >
-                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-indigo-400 dark:bg-indigo-400 shadow-lg shadow-indigo-400/50" />
-                        </div>
-                        <div className="absolute inset-6 rounded-full border border-violet-200/40 dark:border-violet-500/15" style={{ animation: 'orbit-spin 5s linear infinite' }} >
-                            <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-violet-400 dark:bg-violet-400 shadow-lg shadow-violet-400/50" />
-                        </div>
-                        {/* Center icon */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 dark:from-blue-500 dark:to-purple-600 shadow-xl shadow-blue-500/25 dark:shadow-blue-500/30 flex items-center justify-center" style={{ animation: 'center-breathe 2.5s ease-in-out infinite' }}>
-                                <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
+                {/* Main content */}
+                <div className="flex-1 flex flex-col h-screen">
+                    {/* Navbar skeleton */}
+                    <div className="w-full bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 px-6 xl:px-16 py-3">
+                        <div className="flex items-center justify-between max-w-6xl mx-auto">
+                            <SkeletonPulse className="h-9 w-64 rounded-md" />
+                            <div className="flex items-center gap-3">
+                                <SkeletonPulse className="h-8 w-8 rounded-lg" />
+                                <SkeletonPulse className="h-5 w-24" />
+                                <SkeletonPulse className="h-8 w-16 rounded" />
                             </div>
                         </div>
                     </div>
-
-                    {/* Quote card */}
-                    <div className="w-full bg-white/70 dark:bg-zinc-900/60 backdrop-blur-xl border border-white/80 dark:border-zinc-700/40 rounded-3xl p-6 sm:p-8 shadow-lg shadow-blue-500/[0.03] dark:shadow-black/20 text-center space-y-3">
-                        <div className="text-3xl sm:text-4xl transition-all duration-500" style={{ animation: 'fade-swap 3s ease-in-out infinite' }}>
-                            {quotes[currentQuoteIndex].emoji}
-                        </div>
-                        <p className="text-sm sm:text-base font-medium text-gray-700 dark:text-zinc-300 leading-relaxed transition-all duration-500">
-                            {quotes[currentQuoteIndex].text}
-                        </p>
-                    </div>
-
-                    {/* Wave progress */}
-                    <div className="w-full max-w-xs space-y-4">
-                        <div className="relative h-1 bg-gray-200/80 dark:bg-zinc-800 rounded-full overflow-hidden">
-                            <div className="absolute h-full w-1/3 rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 dark:from-blue-400 dark:via-purple-400 dark:to-pink-400" style={{ animation: 'wave-slide 1.8s ease-in-out infinite' }} />
-                        </div>
-                        <p className="text-center text-xs text-gray-400 dark:text-zinc-500 font-medium tracking-widest uppercase">
-                            Loading workspace
-                        </p>
+                    <div className="flex-1 h-full p-4 sm:p-6 xl:p-10 xl:px-16 overflow-y-scroll">
+                        <DashboardSkeleton />
                     </div>
                 </div>
-
-                <style>{`
-                    @keyframes mesh-drift {
-                        0%, 100% { transform: translate(0, 0) scale(1); }
-                        33% { transform: translate(30px, -20px) scale(1.05); }
-                        66% { transform: translate(-20px, 15px) scale(0.95); }
-                    }
-                    @keyframes orbit-spin {
-                        from { transform: rotate(0deg); }
-                        to { transform: rotate(360deg); }
-                    }
-                    @keyframes center-breathe {
-                        0%, 100% { transform: scale(1); opacity: 1; }
-                        50% { transform: scale(0.92); opacity: 0.85; }
-                    }
-                    @keyframes fade-swap {
-                        0%, 100% { opacity: 1; transform: translateY(0); }
-                        45% { opacity: 1; }
-                        50% { opacity: 0.4; transform: translateY(-2px); }
-                        55% { opacity: 1; }
-                    }
-                    @keyframes wave-slide {
-                        0% { left: -33%; }
-                        100% { left: 100%; }
-                    }
-                `}</style>
             </div>
         )
     }
@@ -306,7 +338,7 @@ const Layout = () => {
         )
     }
 
-    // Main Layout (unchanged)
+    // Main Layout
     return (
         <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
             <Sidebar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />

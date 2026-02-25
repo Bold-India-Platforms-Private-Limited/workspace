@@ -2,7 +2,7 @@ import { format } from "date-fns";
 import { toIST } from "../configs/timezone";
 import { useDispatch } from "react-redux";
 import { Save, Trash } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { fetchWorkspaces } from "../features/workspaceSlice";
@@ -31,6 +31,39 @@ export default function ProjectSettings({ project }) {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showFullDescription, setShowFullDescription] = useState(false);
+    const [groupQuery, setGroupQuery] = useState("");
+
+    const allGroups = currentWorkspace?.groups || [];
+    const filteredGroups = useMemo(
+        () => allGroups.filter((g) => g.name?.toLowerCase().includes(groupQuery.toLowerCase())),
+        [allGroups, groupQuery]
+    );
+    const selectedGroups = useMemo(
+        () => allGroups.filter((g) => formData.groupIds.includes(g.id)),
+        [allGroups, formData.groupIds]
+    );
+
+    const toggleGroup = useCallback((groupId) => {
+        setFormData((prev) => ({
+            ...prev,
+            groupIds: prev.groupIds.includes(groupId)
+                ? prev.groupIds.filter((id) => id !== groupId)
+                : prev.groupIds.concat(groupId),
+        }));
+    }, []);
+
+    const toggleSelectAll = useCallback(() => {
+        const filteredIds = filteredGroups.map((g) => g.id);
+        const allSelected = filteredIds.every((id) => formData.groupIds.includes(id));
+        setFormData((prev) => {
+            const next = new Set(prev.groupIds);
+            filteredIds.forEach((id) => {
+                if (allSelected) next.delete(id);
+                else next.add(id);
+            });
+            return { ...prev, groupIds: Array.from(next) };
+        });
+    }, [filteredGroups, formData.groupIds]);
 
     const descriptionHtml = useMemo(() => {
         if (!formData.description) return "";
@@ -170,26 +203,51 @@ export default function ProjectSettings({ project }) {
             {/* Assign Groups */}
             <div className="space-y-6">
                 <div className={cardClasses}>
-                    <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-300 mb-4">Assign Groups</h2>
-                    <div className="border border-zinc-300 dark:border-zinc-700 rounded p-3 max-h-48 overflow-auto">
-                        {currentWorkspace?.groups?.length > 0 ? currentWorkspace.groups.map((group) => (
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-300">Assign Groups</h2>
+                        <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                            <input
+                                type="checkbox"
+                                onChange={toggleSelectAll}
+                                checked={filteredGroups.length > 0 && filteredGroups.every((g) => formData.groupIds.includes(g.id))}
+                            />
+                            <span>Select all</span>
+                        </div>
+                    </div>
+                    <input
+                        value={groupQuery}
+                        onChange={(e) => setGroupQuery(e.target.value)}
+                        placeholder="Search groups..."
+                        className={inputClasses + " mb-3"}
+                    />
+                    <div className="border border-zinc-300 dark:border-zinc-700 rounded p-3 max-h-48 overflow-auto space-y-1">
+                        {filteredGroups.length > 0 ? filteredGroups.map((group) => (
                             <label key={group.id} className="flex items-center gap-2 py-1 text-sm">
                                 <input
                                     type="checkbox"
                                     checked={formData.groupIds.includes(group.id)}
-                                    onChange={() => setFormData((prev) => ({
-                                        ...prev,
-                                        groupIds: prev.groupIds.includes(group.id)
-                                            ? prev.groupIds.filter((id) => id !== group.id)
-                                            : prev.groupIds.concat(group.id)
-                                    }))}
+                                    onChange={() => toggleGroup(group.id)}
                                 />
                                 <span>{group.name}</span>
                             </label>
                         )) : (
-                            <div className="text-xs text-zinc-500">No groups available</div>
+                            <div className="text-xs text-zinc-500">No groups found</div>
                         )}
                     </div>
+                    {selectedGroups.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            {selectedGroups.map((group) => (
+                                <button
+                                    key={group.id}
+                                    type="button"
+                                    onClick={() => toggleGroup(group.id)}
+                                    className="text-xs px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300"
+                                >
+                                    {group.name} ×
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className={cardClasses}>

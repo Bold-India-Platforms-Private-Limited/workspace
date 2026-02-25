@@ -89,6 +89,25 @@ export default function StatsGrid() {
         }
     }, [currentWorkspace, user]);
 
+    if (!currentWorkspace) {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 my-9">
+                {[...Array(4)].map((_, i) => (
+                    <div key={i} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-6 py-4 animate-pulse">
+                        <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                                <div className="h-4 w-24 rounded bg-zinc-200 dark:bg-zinc-800" />
+                                <div className="h-9 w-12 rounded bg-zinc-200 dark:bg-zinc-800" />
+                                <div className="h-3 w-20 rounded bg-zinc-200 dark:bg-zinc-800" />
+                            </div>
+                            <div className="h-11 w-11 rounded-xl bg-zinc-200 dark:bg-zinc-800" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 my-9">
             {statCards.map(

@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useState } from "react";
 import api from "../configs/api";
+import { clearWorkspaceCache } from "../features/workspaceSlice";
 
 const AuthContext = createContext(null);
 
@@ -26,6 +27,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         localStorage.removeItem("currentWorkspaceId");
+        clearWorkspaceCache();
     };
 
     const getToken = async () => token;

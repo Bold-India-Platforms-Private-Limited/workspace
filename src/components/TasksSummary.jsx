@@ -58,6 +58,34 @@ export default function TasksSummary() {
         }
     ];
 
+    if (!currentWorkspace) {
+        return (
+            <div className="space-y-6">
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden animate-pulse">
+                        <div className="border-b border-zinc-200 dark:border-zinc-800 p-4 pb-3">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+                                <div className="flex-1 flex justify-between items-center">
+                                    <div className="h-4 w-20 rounded bg-zinc-200 dark:bg-zinc-800" />
+                                    <div className="h-6 w-8 rounded bg-zinc-200 dark:bg-zinc-800" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 space-y-3">
+                            {[...Array(2)].map((_, j) => (
+                                <div key={j} className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900">
+                                    <div className="h-4 w-36 rounded bg-zinc-200 dark:bg-zinc-800 mb-2" />
+                                    <div className="h-3 w-28 rounded bg-zinc-200 dark:bg-zinc-800" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             {summaryCards.map((card) => (

@@ -6,20 +6,23 @@ node_modules/
 .pnp.js
 
 # ===============================
-# Next.js
+# Build output
 # ===============================
-.next/
-out/
+dist/
 build/
+out/
+.next/
 
 # ===============================
-# Environment variables (VERY IMPORTANT)
+# Environment variables
 # ===============================
 .env
 .env.local
 .env.development
 .env.production
 .env.test
+.env.staging
+.env*.local
 
 # Allow example env
 !.env.example
@@ -31,18 +34,33 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 logs/
+*.log
 
 # ===============================
-# OS / Editor junk
+# OS files
 # ===============================
 .DS_Store
+.DS_Store?
 Thumbs.db
-.vscode/
-.idea/
+ehthumbs.db
+Desktop.ini
 
 # ===============================
-# Testing
+# Editor / IDE
+# ===============================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ===============================
+# Testing / Coverage
 # ===============================
 coverage/
 .nyc_output/
@@ -50,6 +68,11 @@ coverage/
 # ===============================
 # Misc
 # ===============================
-*.log
 *.tmp
+*.temp
 .cache/
+.parcel-cache/
+.turbo/
+*.tsbuildinfo
+.vercel
+.netlify

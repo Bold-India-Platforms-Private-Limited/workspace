@@ -1,6 +1,49 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../configs/api";
 
+const CACHE_KEY = "workspaceCache";
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function readCache() {
+    try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+        const { workspaces, timestamp } = JSON.parse(raw);
+        if (Date.now() - timestamp > CACHE_TTL) return null;
+        return workspaces;
+    } catch {
+        return null;
+    }
+}
+
+function writeCache(workspaces) {
+    try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ workspaces, timestamp: Date.now() }));
+    } catch { /* quota exceeded - ignore */ }
+}
+
+export function clearWorkspaceCache() {
+    localStorage.removeItem(CACHE_KEY);
+}
+
+function selectWorkspace(workspaces) {
+    if (workspaces.length === 0) return null;
+    const savedId = localStorage.getItem("currentWorkspaceId");
+    if (savedId) {
+        const found = workspaces.find((w) => w.id === savedId);
+        if (found) return found;
+    }
+    return workspaces[0];
+}
+
+// Hydrate from cache for instant render
+const cached = readCache();
+const initialState = {
+    workspaces: cached || [],
+    currentWorkspace: cached ? selectWorkspace(cached) : null,
+    loading: !cached, // only show loading if no cache
+};
+
 export const fetchWorkspaces = createAsyncThunk("workspace/fetchWorkspaces", async ({ getToken }) => {
     try {
         const { data } = await api.get("/api/workspaces", { headers: { Authorization: `Bearer ${await getToken()}` } });
@@ -10,12 +53,6 @@ export const fetchWorkspaces = createAsyncThunk("workspace/fetchWorkspaces", asy
         return [];
     }
 });
-
-const initialState = {
-    workspaces: [],
-    currentWorkspace: null,
-    loading: false,
-};
 
 const workspaceSlice = createSlice({
     name: "workspace",
@@ -116,7 +153,10 @@ const workspaceSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder.addCase(fetchWorkspaces.pending, (state) => {
-            state.loading = true;
+            // Only show loading if we have no cached data
+            if (state.workspaces.length === 0) {
+                state.loading = true;
+            }
         });
         builder.addCase(fetchWorkspaces.fulfilled, (state, action) => {
             state.workspaces = action.payload;
@@ -134,6 +174,8 @@ const workspaceSlice = createSlice({
                 }
             }
             state.loading = false;
+            // Persist to cache for next load
+            writeCache(action.payload);
         });
         builder.addCase(fetchWorkspaces.rejected, (state) => {
             state.loading = false;

@@ -47,7 +47,30 @@ const ProjectOverview = () => {
         setProjects(currentWorkspace?.projects || []);
     }, [currentWorkspace]);
 
-    return currentWorkspace && (
+    if (!currentWorkspace) {
+        return (
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden animate-pulse">
+                <div className="border-b border-zinc-200 dark:border-zinc-800 p-4 flex justify-between">
+                    <div className="h-5 w-32 rounded bg-zinc-200 dark:bg-zinc-800" />
+                    <div className="h-5 w-16 rounded bg-zinc-200 dark:bg-zinc-800" />
+                </div>
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className="p-6 border-b border-zinc-200 dark:border-zinc-800 last:border-0">
+                        <div className="flex justify-between mb-3">
+                            <div className="space-y-2 flex-1">
+                                <div className="h-5 w-48 rounded bg-zinc-200 dark:bg-zinc-800" />
+                                <div className="h-4 w-64 rounded bg-zinc-200 dark:bg-zinc-800" />
+                            </div>
+                            <div className="h-6 w-16 rounded bg-zinc-200 dark:bg-zinc-800" />
+                        </div>
+                        <div className="h-1.5 w-full rounded bg-zinc-200 dark:bg-zinc-800 mt-4" />
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    return (
         <div className="bg-white dark:bg-zinc-950 dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all duration-200 rounded-lg overflow-hidden">
             <div className="border-b border-zinc-200 dark:border-zinc-800 p-4 flex items-center justify-between">
                 <h2 className="text-md text-zinc-800 dark:text-zinc-300">Project Overview</h2>

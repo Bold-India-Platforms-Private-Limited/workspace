@@ -68,6 +68,27 @@ const RecentActivity = () => {
         getTasksFromCurrentWorkspace();
     }, [currentWorkspace]);
 
+    if (!currentWorkspace) {
+        return (
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden animate-pulse">
+                <div className="border-b border-zinc-200 dark:border-zinc-800 p-4">
+                    <div className="h-5 w-32 rounded bg-zinc-200 dark:bg-zinc-800" />
+                </div>
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className="p-6 border-b border-zinc-200 dark:border-zinc-800 last:border-0">
+                        <div className="flex items-start gap-4">
+                            <div className="h-8 w-8 rounded-lg bg-zinc-200 dark:bg-zinc-800 shrink-0" />
+                            <div className="flex-1 space-y-2">
+                                <div className="h-5 w-44 rounded bg-zinc-200 dark:bg-zinc-800" />
+                                <div className="h-3 w-32 rounded bg-zinc-200 dark:bg-zinc-800" />
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
     return (
         <div className="bg-white dark:bg-zinc-950 dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 rounded-lg transition-all overflow-hidden">
             <div className="border-b border-zinc-200 dark:border-zinc-800 p-4">

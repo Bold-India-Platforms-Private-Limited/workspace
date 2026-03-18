@@ -324,7 +324,7 @@ const Layout = () => {
     if (user && workspaces.length === 0) {
         return (
             <div className="min-h-screen flex flex-col justify-center items-center text-zinc-600 dark:text-zinc-300 gap-4">
-                <div>No workspaces available yet.</div>
+                <div>No workspaces are available. Kindly log in using your browser’s incognito/private mode to securely access the workspace. </div>
                 {user?.role === "ADMIN" && (
                     <button
                         onClick={() => setIsCreateWorkspaceOpen(true)}

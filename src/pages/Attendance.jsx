@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useSelector } from "react-redux";
 import api from "../configs/api";
-import { CalendarIcon, Camera, Image as ImageIcon, Clock, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { CalendarIcon, Camera, Image as ImageIcon, Clock, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Loader2, Copy, Check, RefreshCw, ChevronDown } from "lucide-react";
 import {
     addMonths,
     subMonths,
@@ -40,6 +40,50 @@ const Attendance = () => {
     const [calendarMonth, setCalendarMonth] = useState(nowIST());
     const [currentTime, setCurrentTime] = useState(nowIST());
     const [selectedCalendarDay, setSelectedCalendarDay] = useState(todayKeyIST());
+
+    // ── Absent lists — fetched ONLY when admin opens the panel ─────────────────
+    const [showAbsentLists, setShowAbsentLists] = useState(false);
+    const [absentListsData, setAbsentListsData] = useState(null);   // null = not yet loaded
+    const [absentListsLoading, setAbsentListsLoading] = useState(false);
+    const [absentListsError, setAbsentListsError] = useState("");
+    const [copiedNever, setCopiedNever] = useState(false);
+    const [copiedToday, setCopiedToday] = useState(false);
+
+    const fetchAbsentLists = async () => {
+        if (!currentWorkspace?.id) return;
+        try {
+            setAbsentListsLoading(true);
+            setAbsentListsError("");
+            const { data } = await api.get(
+                `/api/attendance/absent-lists?workspaceId=${currentWorkspace.id}`,
+                { headers: { Authorization: `Bearer ${await getToken()}` } }
+            );
+            setAbsentListsData(data);
+        } catch (err) {
+            setAbsentListsError(err.response?.data?.message || err.message);
+        } finally {
+            setAbsentListsLoading(false);
+        }
+    };
+
+    // Fetch when panel opens; clear when it closes
+    useEffect(() => {
+        if (showAbsentLists && user?.role === "ADMIN") {
+            fetchAbsentLists();
+        } else {
+            setAbsentListsData(null);
+            setAbsentListsError("");
+        }
+    }, [showAbsentLists, currentWorkspace?.id]);
+
+    const copyEmails = (list, setCopied) => {
+        const text = list.map((u) => u.email).join("\n");
+        navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
+    // ───────────────────────────────────────────────────────────────────────────
 
     useEffect(() => {
         const tick = setInterval(() => setCurrentTime(nowIST()), 1000);
@@ -463,6 +507,157 @@ const Attendance = () => {
                             </div>
                         )}
                     </div>
+
+                    {/* ── Absent Lists Panel ─────────────────────────────────────────────── */}
+                    <div className="bg-white dark:bg-zinc-950 dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+                        {/* Toggle header — the ONLY thing that renders when panel is closed */}
+                        <button
+                            onClick={() => setShowAbsentLists((v) => !v)}
+                            className="w-full flex items-center justify-between p-4 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors"
+                        >
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                                    Absent Member Lists
+                                </span>
+                                <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                                    — never attended &amp; not today
+                                </span>
+                            </div>
+                            <ChevronDown
+                                className={`size-4 text-zinc-400 transition-transform duration-200 ${showAbsentLists ? "rotate-180" : ""}`}
+                            />
+                        </button>
+
+                        {/* Panel body — only mounts when open, zero API cost when closed */}
+                        {showAbsentLists && (
+                            <div className="border-t border-zinc-200 dark:border-zinc-800 p-4 space-y-4">
+                                {/* Toolbar */}
+                                <div className="flex items-center justify-between">
+                                    {absentListsData && (
+                                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                            As of {absentListsData.todayDate} (IST)
+                                        </p>
+                                    )}
+                                    <button
+                                        onClick={fetchAbsentLists}
+                                        disabled={absentListsLoading}
+                                        className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-40"
+                                    >
+                                        <RefreshCw className={`size-3 ${absentListsLoading ? "animate-spin" : ""}`} />
+                                        Refresh
+                                    </button>
+                                </div>
+
+                                {absentListsError && (
+                                    <div className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3">
+                                        {absentListsError}
+                                    </div>
+                                )}
+
+                                {absentListsLoading && !absentListsData && (
+                                    <div className="flex items-center gap-2 py-4 text-sm text-zinc-500">
+                                        <Loader2 className="size-4 animate-spin" /> Loading lists...
+                                    </div>
+                                )}
+
+                                {absentListsData && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                        {/* ── Never Attended ── */}
+                                        <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                                            <div className="flex items-center justify-between px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700">
+                                                <div>
+                                                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                                        Never Attended
+                                                    </span>
+                                                    <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">
+                                                        {absentListsData.neverAttended.length}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={() => copyEmails(absentListsData.neverAttended, setCopiedNever)}
+                                                    disabled={absentListsData.neverAttended.length === 0}
+                                                    title="Copy all emails"
+                                                    className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-30"
+                                                >
+                                                    {copiedNever
+                                                        ? <><Check className="size-3 text-green-500" /> Copied</>
+                                                        : <><Copy className="size-3" /> Copy emails</>
+                                                    }
+                                                </button>
+                                            </div>
+                                            <div className="max-h-64 overflow-y-auto">
+                                                {absentListsData.neverAttended.length === 0 ? (
+                                                    <div className="px-3 py-4 text-xs text-zinc-400 text-center">
+                                                        All members have attended at least once 🎉
+                                                    </div>
+                                                ) : (
+                                                    <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                                        {absentListsData.neverAttended.map((u, i) => (
+                                                            <li key={u.id} className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
+                                                                <span className="text-[10px] text-zinc-400 w-5 shrink-0">{i + 1}.</span>
+                                                                <div className="min-w-0">
+                                                                    <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">{u.name}</p>
+                                                                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">{u.email}</p>
+                                                                </div>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* ── Not Today ── */}
+                                        <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                                            <div className="flex items-center justify-between px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700">
+                                                <div>
+                                                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                                        Not Today
+                                                    </span>
+                                                    <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">
+                                                        {absentListsData.absentToday.length}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={() => copyEmails(absentListsData.absentToday, setCopiedToday)}
+                                                    disabled={absentListsData.absentToday.length === 0}
+                                                    title="Copy all emails"
+                                                    className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-30"
+                                                >
+                                                    {copiedToday
+                                                        ? <><Check className="size-3 text-green-500" /> Copied</>
+                                                        : <><Copy className="size-3" /> Copy emails</>
+                                                    }
+                                                </button>
+                                            </div>
+                                            <div className="max-h-64 overflow-y-auto">
+                                                {absentListsData.absentToday.length === 0 ? (
+                                                    <div className="px-3 py-4 text-xs text-zinc-400 text-center">
+                                                        Everyone has marked attendance today 🎉
+                                                    </div>
+                                                ) : (
+                                                    <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                                        {absentListsData.absentToday.map((u, i) => (
+                                                            <li key={u.id} className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
+                                                                <span className="text-[10px] text-zinc-400 w-5 shrink-0">{i + 1}.</span>
+                                                                <div className="min-w-0">
+                                                                    <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">{u.name}</p>
+                                                                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">{u.email}</p>
+                                                                </div>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    {/* ─────────────────────────────────────────────────────────────────── */}
+
                 </div>
             ) : (
                 <div className="space-y-6">

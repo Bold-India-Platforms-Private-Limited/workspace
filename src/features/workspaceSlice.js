@@ -9,7 +9,13 @@ function readCache() {
         const raw = localStorage.getItem(CACHE_KEY);
         if (!raw) return null;
         const { workspaces, timestamp } = JSON.parse(raw);
-        if (Date.now() - timestamp > CACHE_TTL) return null;
+        if (Date.now() - timestamp > CACHE_TTL) {
+            localStorage.removeItem(CACHE_KEY); // clean up expired cache
+            return null;
+        }
+        // Treat empty arrays as no valid cache — never let a poisoned empty
+        // array from a previous failed fetch act as "loaded" state
+        if (!Array.isArray(workspaces) || workspaces.length === 0) return null;
         return workspaces;
     } catch {
         return null;
@@ -17,6 +23,12 @@ function readCache() {
 }
 
 function writeCache(workspaces) {
+    // Never write an empty array — that would poison the cache and cause
+    // the "no workspaces" flash on the next load
+    if (!Array.isArray(workspaces) || workspaces.length === 0) {
+        localStorage.removeItem(CACHE_KEY);
+        return;
+    }
     try {
         localStorage.setItem(CACHE_KEY, JSON.stringify({ workspaces, timestamp: Date.now() }));
     } catch { /* quota exceeded - ignore */ }
@@ -27,7 +39,7 @@ export function clearWorkspaceCache() {
 }
 
 function selectWorkspace(workspaces) {
-    if (workspaces.length === 0) return null;
+    if (!workspaces || workspaces.length === 0) return null;
     const savedId = localStorage.getItem("currentWorkspaceId");
     if (savedId) {
         const found = workspaces.find((w) => w.id === savedId);
@@ -36,23 +48,32 @@ function selectWorkspace(workspaces) {
     return workspaces[0];
 }
 
-// Hydrate from cache for instant render
-const cached = readCache();
+// Hydrate from cache for instant render on page load
+const cached = readCache(); // null if empty, expired, or missing
 const initialState = {
     workspaces: cached || [],
     currentWorkspace: cached ? selectWorkspace(cached) : null,
-    loading: !cached, // only show loading if no cache
+    // Show loading skeleton when there is no valid cached data to display
+    loading: !cached,
+    fetchError: false,
 };
 
-export const fetchWorkspaces = createAsyncThunk("workspace/fetchWorkspaces", async ({ getToken }) => {
-    try {
-        const { data } = await api.get("/api/workspaces", { headers: { Authorization: `Bearer ${await getToken()}` } });
-        return data.workspaces || [];
-    } catch (error) {
-        console.log(error?.response?.data?.message || error.message);
-        return [];
+export const fetchWorkspaces = createAsyncThunk(
+    "workspace/fetchWorkspaces",
+    async ({ getToken }, { rejectWithValue }) => {
+        try {
+            const { data } = await api.get("/api/workspaces", {
+                headers: { Authorization: `Bearer ${await getToken()}` },
+            });
+            return data.workspaces || [];
+        } catch (error) {
+            // Propagate the error so `rejected` fires instead of `fulfilled`.
+            // Previously this returned [] on error, poisoning the cache and
+            // wiping out valid cached workspaces in the Redux store.
+            return rejectWithValue(error?.response?.data?.message || error.message || "Network error");
+        }
     }
-});
+);
 
 const workspaceSlice = createSlice({
     name: "workspace",
@@ -67,8 +88,6 @@ const workspaceSlice = createSlice({
         },
         addWorkspace: (state, action) => {
             state.workspaces.push(action.payload);
-
-            // set current workspace to the new workspace
             if (state.currentWorkspace?.id !== action.payload.id) {
                 state.currentWorkspace = action.payload;
             }
@@ -77,8 +96,6 @@ const workspaceSlice = createSlice({
             state.workspaces = state.workspaces.map((w) =>
                 w.id === action.payload.id ? action.payload : w
             );
-
-            // if current workspace is updated, set it to the updated workspace
             if (state.currentWorkspace?.id === action.payload.id) {
                 state.currentWorkspace = action.payload;
             }
@@ -88,22 +105,17 @@ const workspaceSlice = createSlice({
         },
         addProject: (state, action) => {
             state.currentWorkspace.projects.push(action.payload);
-            // find workspace by id and add project to it
             state.workspaces = state.workspaces.map((w) =>
                 w.id === state.currentWorkspace.id ? { ...w, projects: w.projects.concat(action.payload) } : w
             );
         },
         addTask: (state, action) => {
-
             state.currentWorkspace.projects = state.currentWorkspace.projects.map((p) => {
-                console.log(p.id, action.payload.projectId, p.id === action.payload.projectId);
                 if (p.id === action.payload.projectId) {
                     p.tasks.push(action.payload);
                 }
                 return p;
             });
-
-            // find workspace and project by id and add task to it
             state.workspaces = state.workspaces.map((w) =>
                 w.id === state.currentWorkspace.id ? {
                     ...w, projects: w.projects.map((p) =>
@@ -120,7 +132,6 @@ const workspaceSlice = createSlice({
                     );
                 }
             });
-            // find workspace and project by id and update task in it
             state.workspaces = state.workspaces.map((w) =>
                 w.id === state.currentWorkspace.id ? {
                     ...w, projects: w.projects.map((p) =>
@@ -138,7 +149,6 @@ const workspaceSlice = createSlice({
                 p.tasks = p.tasks.filter((t) => !action.payload.includes(t.id));
                 return p;
             });
-            // find workspace and project by id and delete task from it
             state.workspaces = state.workspaces.map((w) =>
                 w.id === state.currentWorkspace.id ? {
                     ...w, projects: w.projects.map((p) =>
@@ -148,40 +158,50 @@ const workspaceSlice = createSlice({
                     )
                 } : w
             );
-        }
-
+        },
     },
     extraReducers: (builder) => {
         builder.addCase(fetchWorkspaces.pending, (state) => {
-            // Only show loading if we have no cached data
+            // Only show the skeleton loader when there is nothing to display yet.
+            // If we already have cached workspaces, the user keeps seeing them
+            // while the background refresh runs — no flicker, no disruption.
             if (state.workspaces.length === 0) {
                 state.loading = true;
             }
+            state.fetchError = false;
         });
+
         builder.addCase(fetchWorkspaces.fulfilled, (state, action) => {
             state.workspaces = action.payload;
+            state.loading = false;
+            state.fetchError = false;
+
             if (action.payload.length > 0) {
-                const localStorageCurrentWorkspaceId = localStorage.getItem("currentWorkspaceId");
-                if (localStorageCurrentWorkspaceId) {
-                    const findWorkspace = action.payload.find((w) => w.id === localStorageCurrentWorkspaceId);
-                    if (findWorkspace) {
-                        state.currentWorkspace = findWorkspace;
-                    } else {
-                        state.currentWorkspace = action.payload[0];
-                    }
-                } else {
-                    state.currentWorkspace = action.payload[0];
-                }
+                const savedId = localStorage.getItem("currentWorkspaceId");
+                const found = savedId ? action.payload.find((w) => w.id === savedId) : null;
+                state.currentWorkspace = found || action.payload[0];
+                writeCache(action.payload); // persist fresh data
+            } else {
+                state.currentWorkspace = null;
+                // User genuinely has no workspaces — clear any stale cache
+                // so the next load doesn't try to hydrate from it
+                localStorage.removeItem("workspaceCache");
             }
-            state.loading = false;
-            // Persist to cache for next load
-            writeCache(action.payload);
         });
+
         builder.addCase(fetchWorkspaces.rejected, (state) => {
+            // Backend is unreachable or returned an error.
+            // Crucially: we do NOT touch state.workspaces here.
+            // If the user had valid cached data showing, they keep seeing it.
+            // Only mark error + stop spinner so the UI can react appropriately.
             state.loading = false;
+            state.fetchError = true;
         });
-    }
+    },
 });
 
-export const { setWorkspaces, setCurrentWorkspace, addWorkspace, updateWorkspace, deleteWorkspace, addProject, addTask, updateTask, deleteTask } = workspaceSlice.actions;
+export const {
+    setWorkspaces, setCurrentWorkspace, addWorkspace, updateWorkspace,
+    deleteWorkspace, addProject, addTask, updateTask, deleteTask,
+} = workspaceSlice.actions;
 export default workspaceSlice.reducer;

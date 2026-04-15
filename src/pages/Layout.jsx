@@ -113,7 +113,7 @@ const DashboardSkeleton = () => (
 const Layout = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const { user, login, getToken, isAuthenticated } = useAuth()
-    const { workspaces, loading } = useSelector((state) => state.workspace)
+    const { workspaces, loading, fetchError } = useSelector((state) => state.workspace)
     const dispatch = useDispatch()
     const [formData, setFormData] = useState({ email: "", password: "" })
     const [isLoggingIn, setIsLoggingIn] = useState(false)
@@ -124,12 +124,26 @@ const Layout = () => {
         dispatch(loadTheme())
     }, [])
 
-    // Initial load of workspaces — always fetch fresh data (cache provides instant UI)
+    // Initial load of workspaces — cache provides instant UI, this keeps data fresh
     useEffect(() => {
         if (isAuthenticated && user) {
             dispatch(fetchWorkspaces({ getToken }))
         }
     }, [user, isAuthenticated])
+
+    // Auto-retry when the user returns to the tab after a backend hiccup.
+    // Only fires if there's nothing to show — avoids spamming the backend
+    // when cached workspaces are already displayed fine.
+    useEffect(() => {
+        if (!isAuthenticated || !user) return
+        const handleFocus = () => {
+            if (workspaces.length === 0 || fetchError) {
+                dispatch(fetchWorkspaces({ getToken }))
+            }
+        }
+        window.addEventListener('focus', handleFocus)
+        return () => window.removeEventListener('focus', handleFocus)
+    }, [user, isAuthenticated, workspaces.length, fetchError])
 
     const handleLogin = async (e) => {
         e.preventDefault()
@@ -278,8 +292,18 @@ const Layout = () => {
         )
     }
 
-    // Loading state — show skeleton inside the real layout shell
-    if (loading) {
+    // ── Render decision tree ─────────────────────────────────────────────────
+    //
+    //  1. loading=true  AND  no data yet   → skeleton (first load / empty cache)
+    //  2. fetchError    AND  no data        → connection error + retry button
+    //  3. loaded OK     AND  no workspaces  → create-workspace (admin) / contact-admin (member)
+    //  4. has workspaces                    → main layout
+    //     (background refresh errors while data is showing are silently ignored —
+    //      the user keeps seeing their cached workspaces without disruption)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Case 1 — Loading state: show skeleton inside the real layout shell
+    if (loading && workspaces.length === 0) {
         return (
             <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
                 {/* Sidebar skeleton */}
@@ -321,10 +345,48 @@ const Layout = () => {
         )
     }
 
-    if (user && workspaces.length === 0) {
+    // Case 2 — Connection error with no cached data to fall back on
+    if (fetchError && workspaces.length === 0) {
+        return (
+            <div className="min-h-screen flex flex-col justify-center items-center gap-5 px-4 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                </div>
+                <div>
+                    <p className="text-lg font-semibold text-zinc-800 dark:text-zinc-200 mb-1">
+                        Unable to connect
+                    </p>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-sm">
+                        The server could not be reached. Your internet connection or the server may be temporarily unavailable.
+                    </p>
+                </div>
+                <button
+                    onClick={() => dispatch(fetchWorkspaces({ getToken }))}
+                    className="flex items-center gap-2 px-5 py-2.5 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition font-medium"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Try again
+                </button>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                    The page will also retry automatically when you return to this tab.
+                </p>
+            </div>
+        )
+    }
+
+    // Case 3 — Loaded successfully but the user has no workspaces yet
+    if (!loading && !fetchError && workspaces.length === 0) {
         return (
             <div className="min-h-screen flex flex-col justify-center items-center text-zinc-600 dark:text-zinc-300 gap-4">
-                <div>No workspaces are available. Kindly log in using your browser’s incognito/private mode to securely access the workspace. </div>
+                <p className="text-zinc-500 dark:text-zinc-400 text-sm">
+                    {user?.role === "ADMIN"
+                        ? "No workspaces yet. Create one to get started."
+                        : "You have not been added to any workspace. Please contact your admin."}
+                </p>
                 {user?.role === "ADMIN" && (
                     <button
                         onClick={() => setIsCreateWorkspaceOpen(true)}

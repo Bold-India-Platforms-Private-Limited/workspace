@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchWorkspaces } from '../features/workspaceSlice'
 import { loadTheme } from '../features/themeSlice'
@@ -112,7 +112,8 @@ const DashboardSkeleton = () => (
 
 const Layout = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-    const { user, login, getToken, isAuthenticated } = useAuth()
+    const { user, login, getToken, isAuthenticated, logout } = useAuth()
+    const navigate = useNavigate()
     const { workspaces, loading, fetchError } = useSelector((state) => state.workspace)
     const dispatch = useDispatch()
     const [formData, setFormData] = useState({ email: "", password: "" })
@@ -346,6 +347,11 @@ const Layout = () => {
     }
 
     // Case 2 — Connection error with no cached data to fall back on
+    const handleLogout = () => {
+        logout()
+        navigate('/login')
+    }
+
     if (fetchError && workspaces.length === 0) {
         return (
             <div className="min-h-screen flex flex-col justify-center items-center gap-5 px-4 text-center">
@@ -362,18 +368,34 @@ const Layout = () => {
                         The server could not be reached. Your internet connection or the server may be temporarily unavailable.
                     </p>
                 </div>
-                <button
-                    onClick={() => dispatch(fetchWorkspaces({ getToken }))}
-                    className="flex items-center gap-2 px-5 py-2.5 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition font-medium"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Try again
-                </button>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                    The page will also retry automatically when you return to this tab.
-                </p>
+                <div className="flex gap-3 flex-wrap justify-center">
+                    <button
+                        onClick={() => dispatch(fetchWorkspaces({ getToken }))}
+                        className="flex items-center gap-2 px-5 py-2.5 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition font-medium"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Try again
+                    </button>
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 px-5 py-2.5 text-sm rounded-lg bg-zinc-600 hover:bg-zinc-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-white transition font-medium"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Logout Workspace
+                    </button>
+                </div>
+                <div className="space-y-2 max-w-sm">
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                        The page will also retry automatically when you return to this tab.
+                    </p>
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 border-t border-zinc-300 dark:border-zinc-700 pt-2">
+                        <span className="font-medium text-zinc-600 dark:text-zinc-400">Troubleshooting:</span> If this issue persists, you can try clearing your browser cache or re-logging in using incognito mode.
+                    </p>
+                </div>
             </div>
         )
     }

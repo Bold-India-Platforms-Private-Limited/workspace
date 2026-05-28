@@ -1,5 +1,6 @@
-import { Plus } from 'lucide-react'
-import { useState } from 'react'
+import { Plus, AlertTriangle, Clock } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useSelector } from 'react-redux'
 import { useAuth } from '../auth/AuthContext'
 import StatsGrid from '../components/StatsGrid'
 import ProjectOverview from '../components/ProjectOverview'
@@ -7,11 +8,21 @@ import RecentActivity from '../components/RecentActivity'
 import TasksSummary from '../components/TasksSummary'
 import CreateProjectDialog from '../components/CreateProjectDialog'
 import NotificationsCard from '../components/NotificationsCard'
+import api from '../configs/api'
 
 const Dashboard = () => {
 
     const { user } = useAuth()
+    const currentWorkspace = useSelector((state) => state.workspace?.currentWorkspace || null)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
+    const [attendanceStatus, setAttendanceStatus] = useState(null)
+
+    useEffect(() => {
+        if (!currentWorkspace?.id || user?.role === 'ADMIN') return
+        api.get('/api/attendance/my-status', { params: { workspaceId: currentWorkspace.id } })
+            .then(res => setAttendanceStatus(res.data))
+            .catch(() => {})
+    }, [currentWorkspace?.id, user?.role])
 
     return (
         <div className='max-w-6xl mx-auto space-y-6 sm:space-y-8'>
@@ -30,6 +41,26 @@ const Dashboard = () => {
                     </>
                 )}
             </div>
+
+            {attendanceStatus?.neverAttended && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
+                    <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                    <div>
+                        <span className="font-semibold">No attendance on record.</span>{' '}
+                        You haven't marked attendance yet. Head to the <a href="/attendance" className="underline underline-offset-2 hover:opacity-80">Attendance</a> page to get started.
+                    </div>
+                </div>
+            )}
+
+            {attendanceStatus && !attendanceStatus.neverAttended && !attendanceStatus.markedToday && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400 text-sm">
+                    <Clock size={16} className="mt-0.5 shrink-0" />
+                    <div>
+                        <span className="font-semibold">Attendance not marked today.</span>{' '}
+                        Don't forget to mark your attendance for today on the <a href="/attendance" className="underline underline-offset-2 hover:opacity-80">Attendance</a> page.
+                    </div>
+                </div>
+            )}
 
             <StatsGrid />
 

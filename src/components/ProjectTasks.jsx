@@ -50,6 +50,15 @@ const ProjectTasks = ({ tasks, groups }) => {
         );
     }, [currentWorkspace, user]);
 
+    // Map groupId → group name, built from workspace-level groups (authoritative source)
+    const groupNameMap = useMemo(() => {
+        const map = new Map();
+        (currentWorkspace?.groups || []).forEach((g) => map.set(g.id, g.name));
+        return map;
+    }, [currentWorkspace]);
+
+    const resolveGroupName = (g) => groupNameMap.get(g.groupId || g.group?.id) || g.group?.name || "";
+
     const visibleTasks = useMemo(() => {
         if (user?.role === "ADMIN") return tasks;
         return tasks.filter((task) => task.groups?.some((tg) => userGroupIds.has(tg.groupId || tg.group?.id)));
@@ -78,9 +87,9 @@ const ProjectTasks = ({ tasks, groups }) => {
 
     const groupList = useMemo(
         () => Array.from(new Set(
-            visibleTasks.flatMap((t) => filterTaskGroups(t.groups).map((g) => g.group?.name).filter(Boolean))
+            visibleTasks.flatMap((t) => filterTaskGroups(t.groups).map((g) => resolveGroupName(g)).filter(Boolean))
         )),
-        [visibleTasks, isMember, userGroupIds]
+        [visibleTasks, isMember, userGroupIds, groupNameMap]
     );
 
     const filteredTasks = useMemo(() => {
@@ -90,7 +99,7 @@ const ProjectTasks = ({ tasks, groups }) => {
                 (!status || task.status === status) &&
                 (!type || task.type === type) &&
                 (!priority || task.priority === priority) &&
-                (!group || task.groups?.some((g) => g.group?.name === group))
+                (!group || task.groups?.some((g) => resolveGroupName(g) === group))
             );
         });
     }, [filters, visibleTasks]);
@@ -304,8 +313,8 @@ const ProjectTasks = ({ tasks, groups }) => {
                                                         return displayGroups.length > 0 ? (
                                                             <div className="flex flex-wrap gap-1 items-center">
                                                                 {displayGroups.slice(0, 2).map((g) => (
-                                                                    <span key={g.id || g.group?.id} className="text-[10px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700">
-                                                                        {g.group?.name}
+                                                                    <span key={g.groupId || g.group?.id} className="text-[10px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700">
+                                                                        {resolveGroupName(g)}
                                                                     </span>
                                                                 ))}
                                                                 {displayGroups.length > 2 && (
@@ -409,8 +418,8 @@ const ProjectTasks = ({ tasks, groups }) => {
                                                 return displayGroups.length > 0 ? (
                                                     <>
                                                         {displayGroups.slice(0, 2).map((g) => (
-                                                            <span key={g.id || g.group?.id} className="text-xs px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700">
-                                                                {g.group?.name}
+                                                            <span key={g.groupId || g.group?.id} className="text-xs px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700">
+                                                                {resolveGroupName(g)}
                                                             </span>
                                                         ))}
                                                         {displayGroups.length > 2 && (
@@ -464,8 +473,8 @@ const ProjectTasks = ({ tasks, groups }) => {
                         </div>
                         <div className="flex flex-wrap gap-2 max-h-80 overflow-y-auto">
                             {filterTaskGroups(tasks.find((t) => t.id === openGroupsTaskId)?.groups).map((g) => (
-                                <span key={g.id || g.group?.id} className="text-xs px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700">
-                                    {g.group?.name}
+                                <span key={g.groupId || g.group?.id} className="text-xs px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700">
+                                    {resolveGroupName(g)}
                                 </span>
                             ))}
                         </div>

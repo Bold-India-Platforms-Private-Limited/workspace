@@ -170,7 +170,10 @@ export default function ProjectDetail() {
                 <div className="mt-6">
                     {activeTab === "tasks" && (
                         <div className=" dark:bg-zinc-900/40 rounded max-w-6xl">
-                            <ProjectTasks tasks={tasks} groups={project?.groups?.map((g) => g.group) || []} />
+                            <ProjectTasks tasks={tasks} groups={(() => {
+                                const projectGroupIds = new Set((project?.groups || []).map((g) => g.groupId || g.group?.id).filter(Boolean));
+                                return (currentWorkspace?.groups || []).filter((g) => projectGroupIds.has(g.id));
+                            })()} />
                         </div>
                     )}
                     {activeTab === "description" && (

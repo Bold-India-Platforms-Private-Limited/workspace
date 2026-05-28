@@ -30,7 +30,9 @@ export const AuthProvider = ({ children }) => {
         clearWorkspaceCache();
     };
 
-    const getToken = async () => token;
+    // Read from localStorage so this never returns a stale value from a
+    // React render closure (e.g. right after login before re-render fires)
+    const getToken = async () => localStorage.getItem("token");
 
     const value = useMemo(
         () => ({

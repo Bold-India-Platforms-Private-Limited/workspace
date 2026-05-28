@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { fetchWorkspaces } from '../features/workspaceSlice'
+import { fetchWorkspaces, resetState } from '../features/workspaceSlice'
 import { loadTheme } from '../features/themeSlice'
 import { useAuth } from '../auth/AuthContext'
 import { toast } from 'react-hot-toast'
@@ -348,8 +348,9 @@ const Layout = () => {
 
     // Case 2 — Connection error with no cached data to fall back on
     const handleLogout = () => {
+        dispatch(resetState())   // wipe Redux state so stale data doesn't persist
         logout()
-        navigate('/login')
+        navigate('/')            // '/' re-renders Layout which shows login form when user=null
     }
 
     if (fetchError && workspaces.length === 0) {

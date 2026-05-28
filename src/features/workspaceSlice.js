@@ -159,6 +159,14 @@ const workspaceSlice = createSlice({
                 } : w
             );
         },
+        // Called on logout — wipes Redux state so stale data never bleeds into
+        // the next login session within the same browser tab
+        resetState: (state) => {
+            state.workspaces = [];
+            state.currentWorkspace = null;
+            state.loading = false;
+            state.fetchError = false;
+        },
     },
     extraReducers: (builder) => {
         builder.addCase(fetchWorkspaces.pending, (state) => {
@@ -202,6 +210,6 @@ const workspaceSlice = createSlice({
 
 export const {
     setWorkspaces, setCurrentWorkspace, addWorkspace, updateWorkspace,
-    deleteWorkspace, addProject, addTask, updateTask, deleteTask,
+    deleteWorkspace, addProject, addTask, updateTask, deleteTask, resetState,
 } = workspaceSlice.actions;
 export default workspaceSlice.reducer;

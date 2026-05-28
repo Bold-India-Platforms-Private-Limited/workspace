@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { UserIcon, Shield, LogOut, Trash } from "lucide-react";
+import { UserIcon, Shield, LogOut, Trash, Bell } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -21,6 +21,11 @@ export default function Settings() {
     const [notifications, setNotifications] = useState([]);
     const [isSavingNotification, setIsSavingNotification] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    // Notices state
+    const [notices, setNotices] = useState([]);
+    const [noticeForm, setNoticeForm] = useState({ title: "", content: "", type: "INFO", published: false, priority: 0 });
+    const [editingNoticeId, setEditingNoticeId] = useState(null);
+    const [isSavingNotice, setIsSavingNotice] = useState(false);
     const [clientInfo, setClientInfo] = useState(null);
     const [clientInfoLoading, setClientInfoLoading] = useState(false);
     const [clientInfoError, setClientInfoError] = useState("");
@@ -199,6 +204,60 @@ export default function Settings() {
         }
     };
 
+    const fetchNotices = async () => {
+        if (!currentWorkspace?.id) return;
+        const { data } = await api.get(`/api/notices?workspaceId=${currentWorkspace.id}`, {
+            headers: { Authorization: `Bearer ${await getToken()}` },
+        });
+        setNotices(data.notices || []);
+    };
+
+    useEffect(() => {
+        if (activeTab === "notices") fetchNotices();
+    }, [activeTab, currentWorkspace]);
+
+    const resetNoticeForm = () => {
+        setEditingNoticeId(null);
+        setNoticeForm({ title: "", content: "", type: "INFO", published: false, priority: 0 });
+    };
+
+    const handleSaveNotice = async () => {
+        if (!currentWorkspace?.id || !noticeForm.title.trim() || !noticeForm.content.trim()) return;
+        try {
+            setIsSavingNotice(true);
+            if (editingNoticeId) {
+                await api.patch(`/api/notices/${editingNoticeId}`, noticeForm, {
+                    headers: { Authorization: `Bearer ${await getToken()}` },
+                });
+                toast.success("Notice updated");
+            } else {
+                await api.post("/api/notices", { workspaceId: currentWorkspace.id, ...noticeForm }, {
+                    headers: { Authorization: `Bearer ${await getToken()}` },
+                });
+                toast.success("Notice created");
+            }
+            resetNoticeForm();
+            fetchNotices();
+        } catch (error) {
+            toast.error(error?.response?.data?.message || error.message);
+        } finally {
+            setIsSavingNotice(false);
+        }
+    };
+
+    const handleTogglePublish = async (notice) => {
+        await api.patch(`/api/notices/${notice.id}`, { published: !notice.published }, {
+            headers: { Authorization: `Bearer ${await getToken()}` },
+        });
+        fetchNotices();
+    };
+
+    const handleDeleteNotice = async (id) => {
+        if (!window.confirm("Delete this notice?")) return;
+        await api.delete(`/api/notices/${id}`, { headers: { Authorization: `Bearer ${await getToken()}` } });
+        fetchNotices();
+    };
+
     return user && (
         <div className="space-y-6 max-w-4xl mx-auto">
             {/* Header */}
@@ -216,6 +275,7 @@ export default function Settings() {
                         { key: "profile", icon: <UserIcon className="w-4 h-4" />, label: "Profile" },
                         { key: "account", icon: <Shield className="w-4 h-4" />, label: "Account" },
                         { key: "notifications", icon: <Shield className="w-4 h-4" />, label: "Notifications" },
+                        ...(user?.role === "ADMIN" ? [{ key: "notices", icon: <Bell className="w-4 h-4" />, label: "Notices" }] : []),
                     ].map((tab) => (
                         <button
                             key={tab.key}
@@ -462,6 +522,132 @@ export default function Settings() {
                                                     <button onClick={() => handleDeleteNotification(notification.id)} className="text-xs text-red-600">Delete</button>
                                                 </div>
                                             )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Notices Tab — admin only */}
+                {activeTab === "notices" && user?.role === "ADMIN" && (
+                    <div className="space-y-6">
+                        {/* Create / Edit form */}
+                        <div className="bg-gray-100 dark:bg-zinc-950 dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-gray-300 dark:border-zinc-800 rounded-lg p-4 sm:p-6 space-y-4">
+                            <h2 className="text-gray-900 dark:text-white text-lg font-semibold">
+                                {editingNoticeId ? "Edit Notice" : "Create Notice"}
+                            </h2>
+                            <div className="space-y-3">
+                                <input
+                                    type="text"
+                                    placeholder="Title *"
+                                    value={noticeForm.title}
+                                    onChange={(e) => setNoticeForm((f) => ({ ...f, title: e.target.value }))}
+                                    className="w-full px-3 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <textarea
+                                    placeholder="Content *"
+                                    rows={3}
+                                    value={noticeForm.content}
+                                    onChange={(e) => setNoticeForm((f) => ({ ...f, content: e.target.value }))}
+                                    className="w-full px-3 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                />
+                                <div className="flex flex-wrap gap-3">
+                                    <select
+                                        value={noticeForm.type}
+                                        onChange={(e) => setNoticeForm((f) => ({ ...f, type: e.target.value }))}
+                                        className="px-3 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none"
+                                    >
+                                        <option value="INFO">Info</option>
+                                        <option value="WARNING">Warning</option>
+                                        <option value="SUCCESS">Success</option>
+                                        <option value="DANGER">Danger</option>
+                                    </select>
+                                    <input
+                                        type="number"
+                                        placeholder="Priority (higher = first)"
+                                        value={noticeForm.priority}
+                                        onChange={(e) => setNoticeForm((f) => ({ ...f, priority: Number(e.target.value) }))}
+                                        className="w-44 px-3 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none"
+                                    />
+                                    <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={noticeForm.published}
+                                            onChange={(e) => setNoticeForm((f) => ({ ...f, published: e.target.checked }))}
+                                            className="rounded"
+                                        />
+                                        Publish immediately
+                                    </label>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleSaveNotice}
+                                        disabled={isSavingNotice || !noticeForm.title.trim() || !noticeForm.content.trim()}
+                                        className="px-4 py-2 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition"
+                                    >
+                                        {isSavingNotice ? "Saving…" : editingNoticeId ? "Update Notice" : "Create Notice"}
+                                    </button>
+                                    {editingNoticeId && (
+                                        <button
+                                            onClick={resetNoticeForm}
+                                            className="px-4 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                        >
+                                            Cancel
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Existing notices list */}
+                        <div className="space-y-3">
+                            <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">All Notices</h3>
+                            {notices.length === 0 ? (
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400">No notices yet.</p>
+                            ) : (
+                                notices.map((notice) => (
+                                    <div key={notice.id} className="bg-white dark:bg-zinc-900 rounded-lg p-4 border border-zinc-200 dark:border-zinc-800">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{notice.title}</span>
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                                                        notice.type === "INFO" ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300" :
+                                                        notice.type === "WARNING" ? "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300" :
+                                                        notice.type === "SUCCESS" ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300" :
+                                                        "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
+                                                    }`}>{notice.type}</span>
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${notice.published ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"}`}>
+                                                        {notice.published ? "Published" : "Draft"}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">{notice.content}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <button
+                                                    onClick={() => handleTogglePublish(notice)}
+                                                    className={`text-xs px-2 py-1 rounded border transition ${notice.published ? "border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800" : "border-green-400 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30"}`}
+                                                >
+                                                    {notice.published ? "Unpublish" : "Publish"}
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingNoticeId(notice.id);
+                                                        setNoticeForm({ title: notice.title, content: notice.content, type: notice.type, published: notice.published, priority: notice.priority });
+                                                    }}
+                                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteNotice(notice.id)}
+                                                    className="text-xs text-red-600 dark:text-red-400 hover:underline"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))

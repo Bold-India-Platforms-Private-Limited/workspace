@@ -8,6 +8,7 @@ import { loadTheme } from '../features/themeSlice'
 import { useAuth } from '../auth/AuthContext'
 import { toast } from 'react-hot-toast'
 import CreateWorkspaceDialog from '../components/CreateWorkspaceDialog'
+import NoticesBanner from '../components/NoticesBanner'
 
 const SkeletonPulse = ({ className = "" }) => (
     <div className={`animate-pulse rounded bg-zinc-200 dark:bg-zinc-800 ${className}`} />
@@ -429,8 +430,11 @@ const Layout = () => {
             <Sidebar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
             <div className="flex-1 flex flex-col h-screen">
                 <Navbar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-                <div className="flex-1 h-full p-4 sm:p-6 xl:p-10 xl:px-16 overflow-y-scroll">
-                    <Outlet />
+                <div className="flex-1 flex flex-col h-full overflow-y-scroll">
+                    <NoticesBanner />
+                    <div className="flex-1 p-4 sm:p-6 xl:p-10 xl:px-16">
+                        <Outlet />
+                    </div>
                 </div>
             </div>
         </div>

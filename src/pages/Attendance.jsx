@@ -48,6 +48,8 @@ const Attendance = () => {
     const [absentListsError, setAbsentListsError] = useState("");
     const [copiedNever, setCopiedNever] = useState(false);
     const [copiedToday, setCopiedToday] = useState(false);
+    const [reminderLoading, setReminderLoading] = useState({ neverAttended: false, absentToday: false, both: false });
+    const [reminderResult, setReminderResult] = useState(null);
 
     const fetchAbsentLists = async () => {
         if (!currentWorkspace?.id) return;
@@ -75,6 +77,25 @@ const Attendance = () => {
             setAbsentListsError("");
         }
     }, [showAbsentLists, currentWorkspace?.id]);
+
+    const sendReminder = async (type) => {
+        if (!currentWorkspace?.id) return;
+        setReminderLoading((prev) => ({ ...prev, [type]: true }));
+        setReminderResult(null);
+        try {
+            const { data } = await api.post(
+                "/api/attendance/send-reminder",
+                { workspaceId: currentWorkspace.id, type },
+                { headers: { Authorization: `Bearer ${await getToken()}` } }
+            );
+            setReminderResult({ type, sent: data.sent, total: data.total, message: data.message });
+        } catch (err) {
+            setReminderResult({ type, error: err.response?.data?.message || err.message });
+        } finally {
+            setReminderLoading((prev) => ({ ...prev, [type]: false }));
+            setTimeout(() => setReminderResult(null), 5000);
+        }
+    };
 
     const copyEmails = (list, setCopied) => {
         const text = list.map((u) => u.email).join("\n");
@@ -532,16 +553,26 @@ const Attendance = () => {
                         {showAbsentLists && (
                             <div className="border-t border-zinc-200 dark:border-zinc-800 p-4 space-y-4">
                                 {/* Toolbar */}
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-wrap items-center gap-2">
                                     {absentListsData && (
-                                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mr-auto">
                                             As of {absentListsData.todayDate} (IST)
                                         </p>
+                                    )}
+                                    {absentListsData && (
+                                        <button
+                                            onClick={() => sendReminder("both")}
+                                            disabled={reminderLoading.both}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-blue-400 dark:border-blue-700 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition disabled:opacity-40"
+                                        >
+                                            {reminderLoading.both ? <Loader2 className="size-3 animate-spin" /> : null}
+                                            Send Reminder to All
+                                        </button>
                                     )}
                                     <button
                                         onClick={fetchAbsentLists}
                                         disabled={absentListsLoading}
-                                        className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-40"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-40"
                                     >
                                         <RefreshCw className={`size-3 ${absentListsLoading ? "animate-spin" : ""}`} />
                                         Refresh
@@ -560,6 +591,15 @@ const Attendance = () => {
                                     </div>
                                 )}
 
+                                {reminderResult && (
+                                    <div className={`text-xs rounded p-2.5 border ${reminderResult.error ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400" : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400"}`}>
+                                        {reminderResult.error
+                                            ? `Failed: ${reminderResult.error}`
+                                            : reminderResult.message || `Sent ${reminderResult.sent} of ${reminderResult.total} reminder emails.`
+                                        }
+                                    </div>
+                                )}
+
                                 {absentListsData && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -574,17 +614,30 @@ const Attendance = () => {
                                                         {absentListsData.neverAttended.length}
                                                     </span>
                                                 </div>
-                                                <button
-                                                    onClick={() => copyEmails(absentListsData.neverAttended, setCopiedNever)}
-                                                    disabled={absentListsData.neverAttended.length === 0}
-                                                    title="Copy all emails"
-                                                    className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-30"
-                                                >
-                                                    {copiedNever
-                                                        ? <><Check className="size-3 text-green-500" /> Copied</>
-                                                        : <><Copy className="size-3" /> Copy emails</>
-                                                    }
-                                                </button>
+                                                <div className="flex items-center gap-1.5">
+                                                    <button
+                                                        onClick={() => sendReminder("neverAttended")}
+                                                        disabled={absentListsData.neverAttended.length === 0 || reminderLoading.neverAttended}
+                                                        title="Send reminder email to all who never attended"
+                                                        className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition disabled:opacity-30"
+                                                    >
+                                                        {reminderLoading.neverAttended
+                                                            ? <Loader2 className="size-3 animate-spin" />
+                                                            : "Send Mail"
+                                                        }
+                                                    </button>
+                                                    <button
+                                                        onClick={() => copyEmails(absentListsData.neverAttended, setCopiedNever)}
+                                                        disabled={absentListsData.neverAttended.length === 0}
+                                                        title="Copy all emails"
+                                                        className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-30"
+                                                    >
+                                                        {copiedNever
+                                                            ? <><Check className="size-3 text-green-500" /> Copied</>
+                                                            : <><Copy className="size-3" /> Copy emails</>
+                                                        }
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div className="max-h-64 overflow-y-auto">
                                                 {absentListsData.neverAttended.length === 0 ? (
@@ -618,17 +671,30 @@ const Attendance = () => {
                                                         {absentListsData.absentToday.length}
                                                     </span>
                                                 </div>
-                                                <button
-                                                    onClick={() => copyEmails(absentListsData.absentToday, setCopiedToday)}
-                                                    disabled={absentListsData.absentToday.length === 0}
-                                                    title="Copy all emails"
-                                                    className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-30"
-                                                >
-                                                    {copiedToday
-                                                        ? <><Check className="size-3 text-green-500" /> Copied</>
-                                                        : <><Copy className="size-3" /> Copy emails</>
-                                                    }
-                                                </button>
+                                                <div className="flex items-center gap-1.5">
+                                                    <button
+                                                        onClick={() => sendReminder("absentToday")}
+                                                        disabled={absentListsData.absentToday.length === 0 || reminderLoading.absentToday}
+                                                        title="Send reminder email to all absent today"
+                                                        className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition disabled:opacity-30"
+                                                    >
+                                                        {reminderLoading.absentToday
+                                                            ? <Loader2 className="size-3 animate-spin" />
+                                                            : "Send Mail"
+                                                        }
+                                                    </button>
+                                                    <button
+                                                        onClick={() => copyEmails(absentListsData.absentToday, setCopiedToday)}
+                                                        disabled={absentListsData.absentToday.length === 0}
+                                                        title="Copy all emails"
+                                                        className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-30"
+                                                    >
+                                                        {copiedToday
+                                                            ? <><Check className="size-3 text-green-500" /> Copied</>
+                                                            : <><Copy className="size-3" /> Copy emails</>
+                                                        }
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div className="max-h-64 overflow-y-auto">
                                                 {absentListsData.absentToday.length === 0 ? (

@@ -13,6 +13,7 @@ const Settings = lazy(() => import('./pages/Settings'))
 const Groups = lazy(() => import('./pages/Groups'))
 const Attendance = lazy(() => import('./pages/Attendance'))
 const EmailMonitor = lazy(() => import('./pages/EmailMonitor'))
+const Standup = lazy(() => import('./pages/Standup'))
 
 const PageFallback = () => (
     <div className="max-w-6xl mx-auto space-y-6 animate-pulse">
@@ -41,6 +42,7 @@ const App = () => {
                     <Route path="projectsDetail" element={<Suspense fallback={<PageFallback />}><ProjectDetails /></Suspense>} />
                     <Route path='taskDetails' element={<Suspense fallback={<PageFallback />}><TaskDetails /></Suspense>} />
                     <Route path='settings' element={<Suspense fallback={<PageFallback />}><Settings /></Suspense>} />
+                    <Route path='standup' element={<Suspense fallback={<PageFallback />}><Standup /></Suspense>} />
                 </Route>
             </Routes>
         </>

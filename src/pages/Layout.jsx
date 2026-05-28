@@ -9,6 +9,7 @@ import { useAuth } from '../auth/AuthContext'
 import { toast } from 'react-hot-toast'
 import CreateWorkspaceDialog from '../components/CreateWorkspaceDialog'
 import NoticesBanner from '../components/NoticesBanner'
+import MobileModal from '../components/MobileModal'
 
 const SkeletonPulse = ({ className = "" }) => (
     <div className={`animate-pulse rounded bg-zinc-200 dark:bg-zinc-800 ${className}`} />
@@ -120,6 +121,7 @@ const Layout = () => {
     const [formData, setFormData] = useState({ email: "", password: "" })
     const [isLoggingIn, setIsLoggingIn] = useState(false)
     const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false)
+    const [showMobileModal, setShowMobileModal] = useState(false)
 
     // Initial load of theme
     useEffect(() => {
@@ -132,6 +134,23 @@ const Layout = () => {
             dispatch(fetchWorkspaces({ getToken }))
         }
     }, [user, isAuthenticated])
+
+    // Check if user has set a mobile number; show modal if not
+    useEffect(() => {
+        if (!isAuthenticated || !user) return
+        let cancelled = false;
+        getToken().then(async (token) => {
+            try {
+                const res = await fetch(`${import.meta.env.VITE_BASEURL}/api/users/me`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                })
+                if (!res.ok) return
+                const data = await res.json()
+                if (!cancelled && !data?.user?.mobile) setShowMobileModal(true)
+            } catch { /* silently ignore */ }
+        })
+        return () => { cancelled = true }
+    }, [isAuthenticated, user])
 
     // Auto-retry when the user returns to the tab after a backend hiccup.
     // Only fires if there's nothing to show — avoids spamming the backend
@@ -427,6 +446,7 @@ const Layout = () => {
     // Main Layout
     return (
         <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
+            {showMobileModal && <MobileModal onSaved={() => setShowMobileModal(false)} />}
             <Sidebar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
             <div className="flex-1 flex flex-col h-screen">
                 <Navbar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />

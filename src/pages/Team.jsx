@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { UsersIcon, Search, UserPlus, Shield, Activity, XIcon, Plus, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { UsersIcon, Search, UserPlus, Shield, Activity, XIcon, Plus, RefreshCw, Wifi, WifiOff, Phone, ExternalLink, ChevronDown, ChevronUp, MessageCircle, KeyRound, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import InviteMemberDialog from "../components/InviteMemberDialog";
 import { useDispatch, useSelector } from "react-redux";
 import { useAuth } from "../auth/AuthContext";
@@ -8,6 +8,74 @@ import toast from "react-hot-toast";
 import { fetchWorkspaces } from "../features/workspaceSlice";
 import { useNavigate } from "react-router-dom";
 import { getSocket } from "../configs/socket";
+
+const ResetPasswordButton = ({ memberId, memberName, getToken }) => {
+    const [open, setOpen] = useState(false);
+    const [newPassword, setNewPassword] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    const handleReset = async () => {
+        if (!newPassword || newPassword.length < 6) {
+            toast.error("Password must be at least 6 characters");
+            return;
+        }
+        setLoading(true);
+        try {
+            const token = await getToken();
+            await api.post("/api/users/reset-password", { userId: memberId, newPassword }, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            toast.success(`Password reset for ${memberName}`);
+            setOpen(false);
+            setNewPassword("");
+        } catch (err) {
+            toast.error(err?.response?.data?.message || "Failed to reset password");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <>
+            <button
+                onClick={() => setOpen(true)}
+                title="Reset password"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 text-[11px] font-medium transition"
+            >
+                <KeyRound className="size-3.5" />
+                Reset
+            </button>
+
+            {open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setOpen(false)}>
+                    <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl p-6 w-80 max-w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-1">Reset Password</h3>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">Set a new password for <span className="font-medium text-zinc-700 dark:text-zinc-300">{memberName}</span></p>
+                        <input
+                            type="password"
+                            placeholder="New password (min 6 chars)"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleReset()}
+                            className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-blue-500 mb-4"
+                            autoFocus
+                        />
+                        <div className="flex gap-2 justify-end">
+                            <button onClick={() => { setOpen(false); setNewPassword(""); }}
+                                className="px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
+                                Cancel
+                            </button>
+                            <button onClick={handleReset} disabled={loading}
+                                className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition disabled:opacity-50">
+                                {loading ? "Saving…" : "Reset Password"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+};
 
 const Team = () => {
 
@@ -29,6 +97,16 @@ const Team = () => {
 
     // Regenerate credentials state
     const [regeneratingId, setRegeneratingId] = useState(null);
+
+    // Team Directory (new rich API)
+    const [teamDir, setTeamDir] = useState([]);
+    const [teamDirLoading, setTeamDirLoading] = useState(false);
+    const [teamDirSearch, setTeamDirSearch] = useState("");
+    const [neverLoggedIn, setNeverLoggedIn] = useState([]);
+    const [showTeamDir, setShowTeamDir] = useState(false);
+    const [teamDirFilter, setTeamDirFilter] = useState("all"); // all | no-mobile | never-logged
+    const [teamDirPage, setTeamDirPage] = useState(1);
+    const TEAM_DIR_PAGE_SIZE = 50;
 
     // Search-by-email remove state
     const [emailSearch, setEmailSearch] = useState("");
@@ -150,6 +228,30 @@ const Team = () => {
         setUsers(currentWorkspace?.members || []);
         setTasks(currentWorkspace?.projects?.reduce((acc, project) => [...acc, ...project.tasks], []) || []);
     }, [currentWorkspace]);
+
+    const fetchTeamDir = async () => {
+        if (!currentWorkspace?.id || user?.role !== "ADMIN") return;
+        setTeamDirLoading(true);
+        try {
+            const [teamRes, neverRes] = await Promise.all([
+                api.get(`/api/users/team?workspaceId=${currentWorkspace.id}`, { headers: { Authorization: `Bearer ${await getToken()}` } }),
+                api.get(`/api/users/never-logged-in?workspaceId=${currentWorkspace.id}`, { headers: { Authorization: `Bearer ${await getToken()}` } }),
+            ]);
+            setTeamDir(teamRes.data.users || teamRes.data || []);
+            setNeverLoggedIn(neverRes.data.users || neverRes.data || []);
+        } catch (err) {
+            toast.error(err?.response?.data?.message || err.message);
+        } finally {
+            setTeamDirLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (showTeamDir) fetchTeamDir();
+    }, [showTeamDir, currentWorkspace?.id]);
+
+    // Reset page when filter/search changes
+    useEffect(() => { setTeamDirPage(1); }, [teamDirSearch, teamDirFilter]);
 
     const pagedMembers = useMemo(() => {
         const filteredMembers = getFilteredMembersForModal();
@@ -831,6 +933,264 @@ const Team = () => {
                     </div>
                 </div>
             )}
+
+            {/* ── User Management Panel (admin only) ───────────────────────── */}
+            {user?.role === "ADMIN" && (() => {
+                // Derived filtered list
+                const tdFiltered = teamDir.filter((m) => {
+                    const q = teamDirSearch.toLowerCase();
+                    const matchSearch = !q || m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q) || m.mobile?.includes(q);
+                    const matchTab =
+                        teamDirFilter === "all" ? true :
+                        teamDirFilter === "no-mobile" ? !m.hasMobile :
+                        teamDirFilter === "never-logged" ? !m.hasLoggedIn :
+                        teamDirFilter === "no-group" ? (m.groups || []).length === 0 : true;
+                    return matchSearch && matchTab;
+                });
+                const tdTotalPages = Math.ceil(tdFiltered.length / TEAM_DIR_PAGE_SIZE) || 1;
+                const tdPaged = tdFiltered.slice((teamDirPage - 1) * TEAM_DIR_PAGE_SIZE, teamDirPage * TEAM_DIR_PAGE_SIZE);
+
+                const noMobileCount = teamDir.filter((m) => !m.hasMobile).length;
+                const neverLoggedCount = teamDir.filter((m) => !m.hasLoggedIn).length;
+                const noGroupCount = teamDir.filter((m) => (m.groups || []).length === 0).length;
+
+                return (
+                <div className="bg-white dark:bg-zinc-950 dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+                    {/* Header */}
+                    <button
+                        onClick={() => { setShowTeamDir((v) => !v); }}
+                        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
+                                <Phone className="size-4 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div>
+                                <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">User Management</span>
+                                <span className="ml-2 text-xs text-zinc-400">Mobile · Login Status · WhatsApp · Groups</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {teamDir.length > 0 && (
+                                <div className="hidden sm:flex items-center gap-2 text-[11px]">
+                                    {neverLoggedCount > 0 && (
+                                        <span className="px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 font-medium">
+                                            {neverLoggedCount} never logged in
+                                        </span>
+                                    )}
+                                    {noMobileCount > 0 && (
+                                        <span className="px-2 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 font-medium">
+                                            {noMobileCount} no mobile
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                            {showTeamDir ? <ChevronUp className="size-4 text-zinc-400" /> : <ChevronDown className="size-4 text-zinc-400" />}
+                        </div>
+                    </button>
+
+                    {showTeamDir && (
+                        <div className="border-t border-zinc-200 dark:border-zinc-800">
+                            {/* Toolbar */}
+                            <div className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
+                                {/* Search */}
+                                <div className="relative flex-1 min-w-48">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" />
+                                    <input
+                                        placeholder="Search name, email or mobile…"
+                                        value={teamDirSearch}
+                                        onChange={(e) => { setTeamDirSearch(e.target.value); setTeamDirPage(1); }}
+                                        className="pl-8 w-full text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-zinc-400"
+                                    />
+                                </div>
+                                {/* Filter tabs */}
+                                <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-xs">
+                                    {[
+                                        { key: "all", label: `All (${teamDir.length})` },
+                                        { key: "never-logged", label: `Never Logged In (${neverLoggedCount})`, danger: true },
+                                        { key: "no-mobile", label: `No Mobile (${noMobileCount})`, warn: true },
+                                        { key: "no-group", label: `No Group (${noGroupCount})` },
+                                    ].map(({ key, label, danger, warn }) => (
+                                        <button key={key} onClick={() => { setTeamDirFilter(key); setTeamDirPage(1); }}
+                                            className={`px-2.5 py-1 rounded-md font-medium transition whitespace-nowrap ${
+                                                teamDirFilter === key
+                                                    ? danger ? "bg-red-600 text-white"
+                                                      : warn ? "bg-yellow-500 text-white"
+                                                      : "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
+                                                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                                            }`}
+                                        >{label}</button>
+                                    ))}
+                                </div>
+                                <button onClick={fetchTeamDir} disabled={teamDirLoading}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-40"
+                                >
+                                    <RefreshCw className={`size-3.5 ${teamDirLoading ? "animate-spin" : ""}`} />
+                                    Refresh
+                                </button>
+                            </div>
+
+                            {/* Loading */}
+                            {teamDirLoading && (
+                                <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
+                                    <RefreshCw className="size-4 animate-spin" /> Loading user data…
+                                </div>
+                            )}
+
+                            {/* Empty state */}
+                            {!teamDirLoading && teamDir.length === 0 && (
+                                <div className="text-center py-12 text-sm text-zinc-400">
+                                    Click Refresh to load user directory
+                                </div>
+                            )}
+
+                            {/* Table */}
+                            {!teamDirLoading && tdFiltered.length === 0 && teamDir.length > 0 && (
+                                <div className="text-center py-8 text-sm text-zinc-400">No users match your search / filter.</div>
+                            )}
+
+                            {!teamDirLoading && tdPaged.length > 0 && (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+                                                <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">#</th>
+                                                <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Member</th>
+                                                <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Mobile</th>
+                                                <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Groups</th>
+                                                <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Login</th>
+                                                <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                                            {tdPaged.map((member, idx) => {
+                                                const initials = member.name?.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "??";
+                                                const rowNum = (teamDirPage - 1) * TEAM_DIR_PAGE_SIZE + idx + 1;
+                                                return (
+                                                    <tr key={member.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                                                        {/* # */}
+                                                        <td className="py-3 px-4 text-xs text-zinc-400 w-8">{rowNum}</td>
+                                                        {/* Member */}
+                                                        <td className="py-3 px-4">
+                                                            <div className="flex items-center gap-2.5">
+                                                                {member.image ? (
+                                                                    <img src={member.image} className="size-8 rounded-full object-cover shrink-0" alt="" />
+                                                                ) : (
+                                                                    <div className="size-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-[11px] font-bold text-white shrink-0">
+                                                                        {initials}
+                                                                    </div>
+                                                                )}
+                                                                <div className="min-w-0">
+                                                                    <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate max-w-[160px]">{member.name}</p>
+                                                                    <p className="text-[10px] text-zinc-400 truncate max-w-[160px]">{member.email}</p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        {/* Mobile */}
+                                                        <td className="py-3 px-4">
+                                                            {member.hasMobile ? (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <Phone className="size-3 text-green-500 shrink-0" />
+                                                                    <span className="text-xs text-zinc-700 dark:text-zinc-300 font-mono">{member.mobile}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1 text-[11px] text-yellow-600 dark:text-yellow-400">
+                                                                    <AlertTriangle className="size-3" /> Not set
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        {/* Groups */}
+                                                        <td className="py-3 px-4">
+                                                            <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                                                {(member.groups || []).length === 0 ? (
+                                                                    <span className="text-[11px] text-zinc-400">No group</span>
+                                                                ) : (member.groups).map((g) => (
+                                                                    <span key={g.id} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">{g.name}</span>
+                                                                ))}
+                                                            </div>
+                                                        </td>
+                                                        {/* Login status */}
+                                                        <td className="py-3 px-4">
+                                                            {member.hasLoggedIn ? (
+                                                                <div>
+                                                                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700 dark:text-green-400">
+                                                                        <CheckCircle2 className="size-3" /> Active
+                                                                    </span>
+                                                                    {member.lastLoginAt && (
+                                                                        <p className="text-[10px] text-zinc-400 mt-0.5">
+                                                                            {new Date(member.lastLoginAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-400">
+                                                                    <XCircle className="size-3" /> Never
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        {/* Actions */}
+                                                        <td className="py-3 px-4">
+                                                            <div className="flex items-center gap-2">
+                                                                {/* WhatsApp */}
+                                                                {member.whatsappLink ? (
+                                                                    <a href={member.whatsappLink} target="_blank" rel="noreferrer"
+                                                                        title="Open WhatsApp chat"
+                                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white text-[11px] font-medium transition shadow-sm"
+                                                                    >
+                                                                        <MessageCircle className="size-3.5" />
+                                                                        WhatsApp
+                                                                    </a>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-400 text-[11px]">
+                                                                        <MessageCircle className="size-3.5" />
+                                                                        No mobile
+                                                                    </span>
+                                                                )}
+                                                                {/* Reset password */}
+                                                                <ResetPasswordButton memberId={member.id} memberName={member.name} getToken={getToken} />
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {/* Pagination */}
+                            {!teamDirLoading && tdTotalPages > 1 && (
+                                <div className="flex items-center justify-between px-5 py-3 border-t border-zinc-100 dark:border-zinc-800">
+                                    <p className="text-xs text-zinc-500">
+                                        Showing {(teamDirPage - 1) * TEAM_DIR_PAGE_SIZE + 1}–{Math.min(teamDirPage * TEAM_DIR_PAGE_SIZE, tdFiltered.length)} of {tdFiltered.length}
+                                    </p>
+                                    <div className="flex items-center gap-1">
+                                        <button disabled={teamDirPage === 1} onClick={() => setTeamDirPage(1)}
+                                            className="px-2 py-1 text-xs rounded border border-zinc-300 dark:border-zinc-700 disabled:opacity-40 hover:bg-zinc-100 dark:hover:bg-zinc-800">«</button>
+                                        <button disabled={teamDirPage === 1} onClick={() => setTeamDirPage((p) => p - 1)}
+                                            className="px-2 py-1 text-xs rounded border border-zinc-300 dark:border-zinc-700 disabled:opacity-40 hover:bg-zinc-100 dark:hover:bg-zinc-800">‹</button>
+                                        {Array.from({ length: Math.min(5, tdTotalPages) }, (_, i) => {
+                                            const start = Math.max(1, Math.min(teamDirPage - 2, tdTotalPages - 4));
+                                            const page = start + i;
+                                            return page <= tdTotalPages ? (
+                                                <button key={page} onClick={() => setTeamDirPage(page)}
+                                                    className={`px-2.5 py-1 text-xs rounded border transition ${page === teamDirPage ? "bg-blue-600 border-blue-600 text-white" : "border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>
+                                                    {page}
+                                                </button>
+                                            ) : null;
+                                        })}
+                                        <button disabled={teamDirPage === tdTotalPages} onClick={() => setTeamDirPage((p) => p + 1)}
+                                            className="px-2 py-1 text-xs rounded border border-zinc-300 dark:border-zinc-700 disabled:opacity-40 hover:bg-zinc-100 dark:hover:bg-zinc-800">›</button>
+                                        <button disabled={teamDirPage === tdTotalPages} onClick={() => setTeamDirPage(tdTotalPages)}
+                                            className="px-2 py-1 text-xs rounded border border-zinc-300 dark:border-zinc-700 disabled:opacity-40 hover:bg-zinc-100 dark:hover:bg-zinc-800">»</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+                );
+            })()}
 
             {/* Search Bar */}
             <div className="relative w-full max-w-md">

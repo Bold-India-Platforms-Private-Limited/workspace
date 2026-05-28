@@ -9,25 +9,30 @@ import { fetchWorkspaces } from "../features/workspaceSlice";
 import { useNavigate } from "react-router-dom";
 import { getSocket } from "../configs/socket";
 
-const ResetPasswordButton = ({ memberId, memberName, getToken }) => {
+const ResetPasswordButton = ({ memberId, memberEmail, memberName, workspaceId, getToken }) => {
     const [open, setOpen] = useState(false);
+    const [mode, setMode] = useState("auto"); // "auto" | "manual"
     const [newPassword, setNewPassword] = useState("");
     const [loading, setLoading] = useState(false);
 
+    const close = () => { setOpen(false); setNewPassword(""); setMode("auto"); };
+
     const handleReset = async () => {
-        if (!newPassword || newPassword.length < 6) {
+        if (mode === "manual" && newPassword.length < 6) {
             toast.error("Password must be at least 6 characters");
             return;
         }
         setLoading(true);
         try {
             const token = await getToken();
-            await api.post("/api/users/reset-password", { userId: memberId, newPassword }, {
+            const body = mode === "auto"
+                ? { userId: memberId, workspaceId }
+                : { userId: memberId, workspaceId, newPassword };
+            const res = await api.post("/api/users/reset-password", body, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            toast.success(`Password reset for ${memberName}`);
-            setOpen(false);
-            setNewPassword("");
+            toast.success(res.data.message || "Password reset successfully");
+            close();
         } catch (err) {
             toast.error(err?.response?.data?.message || "Failed to reset password");
         } finally {
@@ -43,31 +48,61 @@ const ResetPasswordButton = ({ memberId, memberName, getToken }) => {
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 text-[11px] font-medium transition"
             >
                 <KeyRound className="size-3.5" />
-                Reset
+                Reset PW
             </button>
 
             {open && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setOpen(false)}>
-                    <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl p-6 w-80 max-w-full mx-4" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-1">Reset Password</h3>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">Set a new password for <span className="font-medium text-zinc-700 dark:text-zinc-300">{memberName}</span></p>
-                        <input
-                            type="password"
-                            placeholder="New password (min 6 chars)"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleReset()}
-                            className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-blue-500 mb-4"
-                            autoFocus
-                        />
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={close}>
+                    <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl p-6 w-96 max-w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-1">
+                            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Reset Password</h3>
+                            <button onClick={close} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"><XIcon className="size-4" /></button>
+                        </div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+                            for <span className="font-medium text-zinc-700 dark:text-zinc-300">{memberName}</span>
+                            <span className="ml-1 text-zinc-400">({memberEmail})</span>
+                        </p>
+
+                        {/* Mode toggle */}
+                        <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-4 text-[11px] font-medium">
+                            <button
+                                onClick={() => setMode("auto")}
+                                className={`flex-1 py-2 transition ${mode === "auto" ? "bg-blue-600 text-white" : "bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700"}`}
+                            >
+                                📧 Auto-generate & Email
+                            </button>
+                            <button
+                                onClick={() => setMode("manual")}
+                                className={`flex-1 py-2 transition ${mode === "manual" ? "bg-blue-600 text-white" : "bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700"}`}
+                            >
+                                🔑 Set Manually
+                            </button>
+                        </div>
+
+                        {mode === "auto" ? (
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-4">
+                                A new random password will be generated and sent directly to <strong>{memberEmail}</strong>.
+                            </p>
+                        ) : (
+                            <input
+                                type="password"
+                                placeholder="New password (min 6 chars)"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && handleReset()}
+                                className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-blue-500 mb-4"
+                                autoFocus
+                            />
+                        )}
+
                         <div className="flex gap-2 justify-end">
-                            <button onClick={() => { setOpen(false); setNewPassword(""); }}
+                            <button onClick={close}
                                 className="px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
                                 Cancel
                             </button>
                             <button onClick={handleReset} disabled={loading}
                                 className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition disabled:opacity-50">
-                                {loading ? "Saving…" : "Reset Password"}
+                                {loading ? "Processing…" : mode === "auto" ? "Generate & Send Email" : "Set Password"}
                             </button>
                         </div>
                     </div>
@@ -106,6 +141,7 @@ const Team = () => {
     const [showTeamDir, setShowTeamDir] = useState(false);
     const [teamDirFilter, setTeamDirFilter] = useState("all"); // all | no-mobile | never-logged
     const [teamDirPage, setTeamDirPage] = useState(1);
+    const [teamDirSort, setTeamDirSort] = useState({ col: "name", dir: "asc" }); // col: name|login|mobile|groups
     const TEAM_DIR_PAGE_SIZE = 50;
 
     // Search-by-email remove state
@@ -251,7 +287,14 @@ const Team = () => {
     }, [showTeamDir, currentWorkspace?.id]);
 
     // Reset page when filter/search changes
-    useEffect(() => { setTeamDirPage(1); }, [teamDirSearch, teamDirFilter]);
+    useEffect(() => { setTeamDirPage(1); }, [teamDirSearch, teamDirFilter, teamDirSort]);
+
+    const toggleSort = (col) => {
+        setTeamDirSort(prev => prev.col === col
+            ? { col, dir: prev.dir === "asc" ? "desc" : "asc" }
+            : { col, dir: col === "login" ? "desc" : "asc" } // login defaults desc (recent first)
+        );
+    };
 
     const pagedMembers = useMemo(() => {
         const filteredMembers = getFilteredMembersForModal();
@@ -946,6 +989,26 @@ const Team = () => {
                         teamDirFilter === "never-logged" ? !m.hasLoggedIn :
                         teamDirFilter === "no-group" ? (m.groups || []).length === 0 : true;
                     return matchSearch && matchTab;
+                }).sort((a, b) => {
+                    const { col, dir } = teamDirSort;
+                    let cmp = 0;
+                    if (col === "name") {
+                        cmp = (a.name || "").localeCompare(b.name || "");
+                    } else if (col === "login") {
+                        // Never-logged always at bottom regardless of dir
+                        if (!a.lastLoginAt && !b.lastLoginAt) cmp = 0;
+                        else if (!a.lastLoginAt) cmp = 1;
+                        else if (!b.lastLoginAt) cmp = -1;
+                        else cmp = new Date(b.lastLoginAt) - new Date(a.lastLoginAt); // recent first = natural desc
+                        return dir === "asc" ? -cmp : cmp; // flip for asc = oldest first (never still at bottom)
+                    } else if (col === "mobile") {
+                        if (a.hasMobile && !b.hasMobile) cmp = -1;
+                        else if (!a.hasMobile && b.hasMobile) cmp = 1;
+                        else cmp = (a.mobile || "").localeCompare(b.mobile || "");
+                    } else if (col === "groups") {
+                        cmp = (b.groups?.length || 0) - (a.groups?.length || 0);
+                    }
+                    return dir === "asc" ? cmp : -cmp;
                 });
                 const tdTotalPages = Math.ceil(tdFiltered.length / TEAM_DIR_PAGE_SIZE) || 1;
                 const tdPaged = tdFiltered.slice((teamDirPage - 1) * TEAM_DIR_PAGE_SIZE, teamDirPage * TEAM_DIR_PAGE_SIZE);
@@ -1055,10 +1118,25 @@ const Team = () => {
                                         <thead>
                                             <tr className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
                                                 <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">#</th>
-                                                <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Member</th>
-                                                <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Mobile</th>
-                                                <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Groups</th>
-                                                <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Login</th>
+                                                {[
+                                                    { col: "name", label: "Member" },
+                                                    { col: "mobile", label: "Mobile" },
+                                                    { col: "groups", label: "Groups" },
+                                                    { col: "login", label: "Login" },
+                                                ].map(({ col, label }) => (
+                                                    <th key={col}
+                                                        onClick={() => toggleSort(col)}
+                                                        className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide cursor-pointer select-none hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors group">
+                                                        <span className="flex items-center gap-1">
+                                                            {label}
+                                                            <span className={`transition-opacity ${teamDirSort.col === col ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`}>
+                                                                {teamDirSort.col === col
+                                                                    ? teamDirSort.dir === "asc" ? "↑" : "↓"
+                                                                    : "↕"}
+                                                            </span>
+                                                        </span>
+                                                    </th>
+                                                ))}
                                                 <th className="text-left py-3 px-4 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Actions</th>
                                             </tr>
                                         </thead>
@@ -1147,7 +1225,7 @@ const Team = () => {
                                                                     </span>
                                                                 )}
                                                                 {/* Reset password */}
-                                                                <ResetPasswordButton memberId={member.id} memberName={member.name} getToken={getToken} />
+                                                                <ResetPasswordButton memberId={member.id} memberName={member.name} memberEmail={member.email} workspaceId={currentWorkspace?.id} getToken={getToken} />
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1192,141 +1270,6 @@ const Team = () => {
                 );
             })()}
 
-            {/* Search Bar */}
-            <div className="relative w-full max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-zinc-400 size-3" />
-                <input placeholder="Search team members..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 w-full text-sm rounded-md border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-400 py-2 focus:outline-none focus:border-blue-500" />
-            </div>
-
-            {/* Team Members Table */}
-            <div className="w-full">
-                {filteredUsers.length === 0 ? (
-                    <div className="col-span-full text-center py-16">
-                        <div className="w-24 h-24 mx-auto mb-6 bg-gray-200 dark:bg-zinc-800 rounded-full flex items-center justify-center">
-                            <UsersIcon className="w-12 h-12 text-gray-400 dark:text-zinc-500" />
-                        </div>
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                            {users.length === 0 ? "No team members yet" : "No members match your search"}
-                        </h3>
-                        <p className="text-gray-500 dark:text-zinc-400 mb-6">
-                            {users.length === 0 ? "Invite team members to start collaborating" : "Try adjusting your search term"}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="max-w-4xl w-full">
-                        {/* Desktop Table */}
-                        <div className="hidden sm:block overflow-x-auto rounded-md border border-gray-200 dark:border-zinc-800">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
-                                <thead className="bg-gray-50 dark:bg-zinc-900/50">
-                                    <tr>
-                                        <th className="px-6 py-2.5 text-left font-medium text-sm">Name</th>
-                                        <th className="px-6 py-2.5 text-left font-medium text-sm">Email</th>
-                                        <th className="px-6 py-2.5 text-left font-medium text-sm">Role</th>
-                                        {user?.role === "ADMIN" && (
-                                            <th className="px-6 py-2.5 text-left font-medium text-sm">Actions</th>
-                                        )}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-zinc-800">
-                                    {filteredUsers.map((u) => {
-                                        const isOnline = showActiveUsers && activeUsers.some((au) => au.userId === u.userId);
-                                        return (
-                                            <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                                <td className="px-6 py-2.5 whitespace-nowrap flex items-center gap-3">
-                                                    <div className="relative">
-                                                        {u.user?.image ? (
-                                                            <img src={u.user.image} alt={u.user.name} className="size-7 rounded-full bg-gray-200 dark:bg-zinc-800 object-cover" />
-                                                        ) : (
-                                                            <div className="size-7 rounded-full bg-zinc-200 dark:bg-zinc-800 text-[10px] font-semibold text-zinc-700 dark:text-zinc-200 flex items-center justify-center">
-                                                                {getInitials(u.user?.name || u.user?.email)}
-                                                            </div>
-                                                        )}
-                                                        {isOnline && (
-                                                            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white dark:border-zinc-900" />
-                                                        )}
-                                                    </div>
-                                                    <span className="text-sm text-zinc-800 dark:text-white truncate">
-                                                        {u.user?.name || "Unknown User"}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-zinc-400">
-                                                    {u.user?.email}
-                                                </td>
-                                                <td className="px-6 py-2.5 whitespace-nowrap">
-                                                    <span className={`px-2 py-1 text-xs rounded-md ${u.role === "ADMIN" ? "bg-purple-100 dark:bg-purple-500/20 text-purple-500 dark:text-purple-400" : "bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300"}`}>
-                                                        {u.role || "User"}
-                                                    </span>
-                                                </td>
-                                                {user?.role === "ADMIN" && (
-                                                    <td className="px-6 py-2.5 whitespace-nowrap">
-                                                        <button
-                                                            onClick={() => handleRegenerateCredentials(u.userId, u.user?.email)}
-                                                            disabled={regeneratingId === u.userId}
-                                                            title="Regenerate login credentials"
-                                                            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-40"
-                                                        >
-                                                            <RefreshCw className={`w-3 h-3 ${regeneratingId === u.userId ? "animate-spin" : ""}`} />
-                                                            {regeneratingId === u.userId ? "Sending..." : "Reset Login"}
-                                                        </button>
-                                                    </td>
-                                                )}
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Mobile Cards */}
-                        <div className="sm:hidden space-y-3">
-                            {filteredUsers.map((u) => {
-                                const isOnline = activeUsers.some((au) => au.userId === u.userId);
-                                return (
-                                    <div key={u.id} className="p-4 border border-gray-200 dark:border-zinc-800 rounded-md bg-white dark:bg-zinc-900">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <div className="relative">
-                                                {u.user?.image ? (
-                                                    <img src={u.user.image} alt={u.user.name} className="size-9 rounded-full bg-gray-200 dark:bg-zinc-800 object-cover" />
-                                                ) : (
-                                                    <div className="size-9 rounded-full bg-zinc-200 dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 flex items-center justify-center">
-                                                        {getInitials(u.user?.name || u.user?.email)}
-                                                    </div>
-                                                )}
-                                                {isOnline && (
-                                                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white dark:border-zinc-900" />
-                                                )}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-medium text-gray-900 dark:text-white truncate">
-                                                    {shortText(u.user?.name || "Unknown User")}
-                                                </p>
-                                                <p className="text-sm text-gray-500 dark:text-zinc-400 truncate">
-                                                    {shortText(u.user?.email)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`px-2 py-1 text-xs rounded-md ${u.role === "ADMIN" ? "bg-purple-100 dark:bg-purple-500/20 text-purple-500 dark:text-purple-400" : "bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300"}`}>
-                                                {u.role || "User"}
-                                            </span>
-                                            {user?.role === "ADMIN" && (
-                                                <button
-                                                    onClick={() => handleRegenerateCredentials(u.userId, u.user?.email)}
-                                                    disabled={regeneratingId === u.userId}
-                                                    className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-40"
-                                                >
-                                                    <RefreshCw className={`w-3 h-3 ${regeneratingId === u.userId ? "animate-spin" : ""}`} />
-                                                    Reset Login
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-            </div>
 
             {/* Bulk Generate Groups Modal */}
             {isBulkGenerateModalOpen && (() => {

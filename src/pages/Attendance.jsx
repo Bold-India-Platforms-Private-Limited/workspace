@@ -51,6 +51,23 @@ const Attendance = () => {
     const [reminderLoading, setReminderLoading] = useState({ neverAttended: false, absentToday: false, both: false });
     const [reminderResult, setReminderResult] = useState(null);
 
+    // Leave map for today — userId → leave type (LEAVE | WORK_FROM_HOME | HALF_DAY)
+    const [leaveMap, setLeaveMap] = useState({});
+    useEffect(() => {
+        if (!currentWorkspace?.id) return;
+        const fetchLeaves = async () => {
+            try {
+                const token = await getToken();
+                const dateStr = new Date().toISOString().slice(0, 10);
+                const res = await api.get(`/api/leave/check?workspaceId=${currentWorkspace.id}&date=${dateStr}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                setLeaveMap(res.data.leaveMap || {});
+            } catch { /* silently ignore */ }
+        };
+        fetchLeaves();
+    }, [currentWorkspace?.id]);
+
     const fetchAbsentLists = async () => {
         if (!currentWorkspace?.id) return;
         try {
@@ -703,15 +720,26 @@ const Attendance = () => {
                                                     </div>
                                                 ) : (
                                                     <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                                        {absentListsData.absentToday.map((u, i) => (
+                                                        {absentListsData.absentToday.map((u, i) => {
+                                                            const leaveType = leaveMap[u.id];
+                                                            const leaveLabel = leaveType === "LEAVE" ? "On Leave" : leaveType === "WORK_FROM_HOME" ? "WFH" : leaveType === "HALF_DAY" ? "Half Day" : null;
+                                                            return (
                                                             <li key={u.id} className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
                                                                 <span className="text-[10px] text-zinc-400 w-5 shrink-0">{i + 1}.</span>
-                                                                <div className="min-w-0">
-                                                                    <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">{u.name}</p>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">{u.name}</p>
+                                                                        {leaveLabel && (
+                                                                            <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${leaveType === "LEAVE" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" : leaveType === "WORK_FROM_HOME" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"}`}>
+                                                                                {leaveLabel}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
                                                                     <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">{u.email}</p>
                                                                 </div>
                                                             </li>
-                                                        ))}
+                                                            );
+                                                        })}
                                                     </ul>
                                                 )}
                                             </div>

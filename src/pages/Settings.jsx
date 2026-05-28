@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { UserIcon, Shield, LogOut, Trash, Bell } from "lucide-react";
+import { UserIcon, Shield, LogOut, Trash, Bell, Phone, Pencil, Check, X } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -29,6 +29,10 @@ export default function Settings() {
     const [clientInfo, setClientInfo] = useState(null);
     const [clientInfoLoading, setClientInfoLoading] = useState(false);
     const [clientInfoError, setClientInfoError] = useState("");
+    const [mobile, setMobile] = useState("");
+    const [editingMobile, setEditingMobile] = useState(false);
+    const [mobileInput, setMobileInput] = useState("");
+    const [savingMobile, setSavingMobile] = useState(false);
     const [currentTime, setCurrentTime] = useState(nowIST());
     const [notificationForm, setNotificationForm] = useState({
         title: "",
@@ -116,6 +120,33 @@ export default function Settings() {
         };
         fetchInfo();
     }, [activeTab, user, clientInfo, clientInfoLoading]);
+
+    // Load mobile from /api/users/me on mount
+    useEffect(() => {
+        if (!user) return;
+        getToken().then(async (token) => {
+            try {
+                const res = await api.get("/api/users/me", { headers: { Authorization: `Bearer ${token}` } });
+                setMobile(res.data?.user?.mobile || "");
+            } catch { /* ignore */ }
+        });
+    }, [user]);
+
+    const saveMobile = async () => {
+        if (!mobileInput.trim()) { toast.error("Enter a mobile number"); return; }
+        setSavingMobile(true);
+        try {
+            const token = await getToken();
+            await api.put("/api/users/me/mobile", { mobile: mobileInput }, { headers: { Authorization: `Bearer ${token}` } });
+            setMobile(mobileInput.replace(/\D/g, ""));
+            setEditingMobile(false);
+            toast.success("Mobile number updated");
+        } catch (err) {
+            toast.error(err?.response?.data?.message || "Failed to update mobile");
+        } finally {
+            setSavingMobile(false);
+        }
+    };
 
     const handleTabChange = (tab) => {
         setActiveTab(tab);
@@ -311,6 +342,54 @@ export default function Settings() {
                                     </p>
                                     <p className="text-sm text-gray-600 dark:text-zinc-500 capitalize">{user?.role || "MEMBER"} Account</p>
                                 </div>
+                            </div>
+
+                            {/* Mobile Number */}
+                            <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4">
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                        <Phone className="size-4 text-zinc-400" />
+                                        WhatsApp / Mobile Number
+                                    </div>
+                                    {!editingMobile && (
+                                        <button
+                                            onClick={() => { setMobileInput(mobile || ""); setEditingMobile(true); }}
+                                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                                        >
+                                            <Pencil className="size-3" />
+                                            {mobile ? "Edit" : "Add"}
+                                        </button>
+                                    )}
+                                </div>
+
+                                {editingMobile ? (
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <input
+                                            type="tel"
+                                            placeholder="e.g. 919876543210 (with country code)"
+                                            value={mobileInput}
+                                            onChange={(e) => setMobileInput(e.target.value)}
+                                            onKeyDown={(e) => e.key === "Enter" && saveMobile()}
+                                            autoFocus
+                                            className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-blue-500"
+                                        />
+                                        <button onClick={saveMobile} disabled={savingMobile}
+                                            className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition">
+                                            <Check className="size-4" />
+                                        </button>
+                                        <button onClick={() => setEditingMobile(false)}
+                                            className="p-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
+                                            <X className="size-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm mt-1 text-zinc-600 dark:text-zinc-400">
+                                        {mobile
+                                            ? <span className="font-mono">+{mobile}</span>
+                                            : <span className="text-zinc-400 italic">Not set — add your WhatsApp number so admin can reach you</span>
+                                        }
+                                    </p>
+                                )}
                             </div>
                         </div>
 

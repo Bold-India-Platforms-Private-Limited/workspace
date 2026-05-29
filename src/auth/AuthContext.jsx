@@ -11,8 +11,8 @@ export const AuthProvider = ({ children }) => {
         return stored ? JSON.parse(stored) : null;
     });
 
-    const login = async (email, password) => {
-        const { data } = await api.post("/api/auth/login", { email, password });
+    const login = async (email, password, captchaToken, captchaAnswer) => {
+        const { data } = await api.post("/api/auth/login", { email, password, captchaToken, captchaAnswer });
         const userWithRole = { ...data.user, role: data.role };
         setToken(data.token);
         setUser(userWithRole);

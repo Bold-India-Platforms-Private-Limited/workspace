@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
 import { Outlet, useNavigate } from 'react-router-dom'
@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast'
 import CreateWorkspaceDialog from '../components/CreateWorkspaceDialog'
 import NoticesBanner from '../components/NoticesBanner'
 import MobileModal from '../components/MobileModal'
+import CaptchaWidget from '../components/CaptchaWidget'
 
 const SkeletonPulse = ({ className = "" }) => (
     <div className={`animate-pulse rounded bg-zinc-200 dark:bg-zinc-800 ${className}`} />
@@ -122,6 +123,16 @@ const Layout = () => {
     const [isLoggingIn, setIsLoggingIn] = useState(false)
     const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false)
     const [showMobileModal, setShowMobileModal] = useState(false)
+    const [showForgot, setShowForgot] = useState(false)
+    const [forgotEmail, setForgotEmail] = useState("")
+    const [forgotState, setForgotState] = useState("idle") // idle | loading | success | error
+    const [forgotMsg, setForgotMsg] = useState("")
+
+    // Custom CAPTCHA refs and state
+    const loginCaptchaRef  = useRef(null)
+    const forgotCaptchaRef = useRef(null)
+    const [loginCaptcha,  setLoginCaptcha]  = useState({ token: "", answer: "" })
+    const [forgotCaptcha, setForgotCaptcha] = useState({ token: "", answer: "" })
 
     // Initial load of theme
     useEffect(() => {
@@ -166,16 +177,64 @@ const Layout = () => {
         return () => window.removeEventListener('focus', handleFocus)
     }, [user, isAuthenticated, workspaces.length, fetchError])
 
+    const handleForgot = async (e) => {
+        e.preventDefault()
+        if (!forgotCaptcha.answer || forgotCaptcha.answer.length < 6) {
+            setForgotState("error")
+            setForgotMsg("Please type all 6 CAPTCHA characters.")
+            return
+        }
+        setForgotState("loading")
+        setForgotMsg("")
+        try {
+            const res = await fetch(`${import.meta.env.VITE_BASEURL}/api/auth/request-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: forgotEmail, captchaToken: forgotCaptcha.token, captchaAnswer: forgotCaptcha.answer }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                setForgotState("error")
+                setForgotMsg(data.message || "Something went wrong")
+                forgotCaptchaRef.current?.reset()
+                setForgotCaptcha({ token: "", answer: "" })
+            } else {
+                setForgotState("success")
+                setForgotMsg(data.message)
+            }
+        } catch {
+            setForgotState("error")
+            setForgotMsg("Unable to reach the server. Please try again.")
+            forgotCaptchaRef.current?.reset()
+            setForgotCaptcha({ token: "", answer: "" })
+        }
+    }
+
+    const closeForgot = () => {
+        setShowForgot(false)
+        setForgotEmail("")
+        setForgotState("idle")
+        setForgotMsg("")
+        forgotCaptchaRef.current?.reset()
+        setForgotCaptcha({ token: "", answer: "" })
+    }
+
     const handleLogin = async (e) => {
         e.preventDefault()
+        if (!loginCaptcha.answer || loginCaptcha.answer.length < 6) {
+            toast.error("Please complete the CAPTCHA.")
+            return
+        }
         setIsLoggingIn(true)
         try {
-            await login(formData.email, formData.password)
+            await login(formData.email, formData.password, loginCaptcha.token, loginCaptcha.answer)
             toast.success("Logged in successfully")
             dispatch(fetchWorkspaces({ getToken }))
         } catch (error) {
             console.log(error)
             toast.error(error.response?.data?.message || error.message)
+            loginCaptchaRef.current?.reset()
+            setLoginCaptcha({ token: "", answer: "" })
         } finally {
             setIsLoggingIn(false)
         }
@@ -266,10 +325,16 @@ const Layout = () => {
                                 />
                             </div>
 
+                            {/* Custom CAPTCHA for login */}
+                            <CaptchaWidget
+                                ref={loginCaptchaRef}
+                                onChange={setLoginCaptcha}
+                            />
+
                             {/* Sign In Button */}
                             <button
                                 type="submit"
-                                disabled={isLoggingIn}
+                                disabled={isLoggingIn || loginCaptcha.answer.length < 6}
                                 className="group relative w-full py-3.5 rounded-xl bg-blue-600 dark:bg-gradient-to-r dark:from-blue-500 dark:via-purple-500 dark:to-pink-500 text-white text-sm font-semibold shadow-lg shadow-blue-600/30 dark:shadow-blue-500/30 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/40 dark:hover:shadow-blue-500/60 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                             >
                                 <span className="flex items-center justify-center gap-2">
@@ -294,14 +359,143 @@ const Layout = () => {
                         </div>
 
                         {/* Footer */}
-                        <div className="flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-zinc-400 mt-6">
-                            <svg className="w-4 h-4 text-blue-600 dark:text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            <span>Secure & Encrypted</span>
+                        <div className="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-zinc-400 mt-6">
+                            <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-blue-600 dark:text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                                <span>Secure & Encrypted</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowForgot(true)}
+                                className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                            >
+                                Forgot password?
+                            </button>
                         </div>
                     </form>
                 </div>
+
+                {/* ── Forgot password modal ── */}
+                {showForgot && (
+                    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={closeForgot}>
+                        <div
+                            className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-sm p-7 relative"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Close */}
+                            <button onClick={closeForgot} className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+
+                            {forgotState === "success" ? (
+                                /* Success state */
+                                <div className="text-center py-2">
+                                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
+                                        <svg className="w-7 h-7 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Password sent!</h3>
+                                    <p className="text-sm text-gray-700 dark:text-zinc-300 mb-4 font-medium">
+                                        We've sent your new password to your email address.
+                                    </p>
+                                    {/* Spam notice */}
+                                    <div className="text-left mb-5 flex items-start gap-2.5 px-3 py-3 rounded-lg bg-amber-50 border border-amber-200">
+                                        <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                                        </svg>
+                                        <div>
+                                            <p className="text-xs font-semibold text-amber-800">Can't find the email?</p>
+                                            <p className="text-xs text-amber-700 mt-0.5">
+                                                Check your <strong>Spam</strong> or <strong>Promotions</strong> folder. If found there, mark it as <em>"Not Spam"</em> so future emails reach your inbox.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button onClick={closeForgot} className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition">
+                                        Back to login
+                                    </button>
+                                </div>
+                            ) : (
+                                /* Request form */
+                                <>
+                                    <div className="mb-5">
+                                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Request new password</h3>
+                                        <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
+                                            Enter your registered email. We'll send a new password instantly.
+                                        </p>
+                                    </div>
+
+                                    <form onSubmit={handleForgot} className="space-y-4">
+                                        <div>
+                                            <label className="text-sm font-semibold text-gray-700 dark:text-zinc-300 block mb-1.5">Email address</label>
+                                            <input
+                                                type="email"
+                                                value={forgotEmail}
+                                                onChange={(e) => { setForgotEmail(e.target.value); setForgotMsg(""); setForgotState("idle"); }}
+                                                placeholder="you@example.com"
+                                                required
+                                                autoFocus
+                                                style={{ backgroundColor: "white", border: "2px solid #e5e7eb", color: "#111827" }}
+                                                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition placeholder-gray-400"
+                                            />
+                                        </div>
+
+                                        {/* Always-visible notice */}
+                                        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200">
+                                            <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                            <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                                                Only use your registered email.<br />
+                                                <span className="font-normal text-amber-700">Unregistered emails will not be accepted.</span>
+                                            </p>
+                                        </div>
+
+                                        {/* Email-not-found error */}
+                                        {forgotState === "error" && (
+                                            <div className="flex items-start gap-2.5 px-3 py-3 rounded-lg bg-red-50 border-l-4 border-red-500">
+                                                <svg className="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                </svg>
+                                                <div>
+                                                    <p className="text-xs font-semibold text-red-700">{forgotMsg}</p>
+                                                    <p className="text-xs text-red-500 mt-0.5">Please use only the email registered with us.</p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Custom CAPTCHA for forgot password */}
+                                        <CaptchaWidget
+                                            ref={forgotCaptchaRef}
+                                            onChange={setForgotCaptcha}
+                                        />
+
+                                        <button
+                                            type="submit"
+                                            disabled={forgotState === "loading" || forgotCaptcha.answer.length < 6}
+                                            className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-lg shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                                        >
+                                            {forgotState === "loading" ? (
+                                                <>
+                                                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                    </svg>
+                                                    Sending…
+                                                </>
+                                            ) : "Send new password"}
+                                        </button>
+                                    </form>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 <style>{`
                     @keyframes float {

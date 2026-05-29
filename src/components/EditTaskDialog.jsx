@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, XIcon } from "lucide-react";
+import { Calendar as CalendarIcon, XIcon, Code2, Type } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { updateTask } from "../features/workspaceSlice";
 import { useAuth } from "../auth/AuthContext";
@@ -8,6 +8,79 @@ import { toIST } from "../configs/timezone";
 import toast from "react-hot-toast";
 import api from "../configs/api";
 import QuillEditor from "./QuillEditor";
+
+function DescriptionEditor({ formData, setFormData, htmlPreview, setHtmlPreview, quillModules, quillFormats }) {
+    const isHtml = formData.descriptionType === "html";
+    return (
+        <div className="space-y-2 h-full flex flex-col">
+            <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Description</label>
+                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg p-0.5">
+                    <button
+                        type="button"
+                        onClick={() => setFormData((f) => ({ ...f, descriptionType: "text", description: "" }))}
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition ${!isHtml ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"}`}
+                    >
+                        <Type className="size-3" /> Text
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setFormData((f) => ({ ...f, descriptionType: "html", description: "" }))}
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition ${isHtml ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"}`}
+                    >
+                        <Code2 className="size-3" /> HTML
+                    </button>
+                </div>
+            </div>
+
+            {isHtml ? (
+                <div className="flex-1 flex flex-col gap-2 min-h-0">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setHtmlPreview(false)}
+                            className={`text-xs px-3 py-1 rounded border transition ${!htmlPreview ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20" : "border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400"}`}
+                        >
+                            Code
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setHtmlPreview(true)}
+                            className={`text-xs px-3 py-1 rounded border transition ${htmlPreview ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20" : "border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400"}`}
+                        >
+                            Preview
+                        </button>
+                    </div>
+                    {!htmlPreview ? (
+                        <textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData((f) => ({ ...f, description: e.target.value }))}
+                            placeholder={"<!DOCTYPE html>\n<html>\n<body>\n  <h1>Your task description</h1>\n</body>\n</html>"}
+                            spellCheck={false}
+                            className="flex-1 w-full min-h-[300px] font-mono text-xs rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-950 text-green-400 p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    ) : (
+                        <iframe
+                            srcDoc={formData.description || "<p style='color:#888;font-family:sans-serif;padding:16px'>Nothing to preview yet…</p>"}
+                            title="HTML Preview"
+                            sandbox="allow-scripts"
+                            className="flex-1 w-full min-h-[300px] rounded border border-zinc-300 dark:border-zinc-700 bg-white"
+                        />
+                    )}
+                </div>
+            ) : (
+                <div className="rounded border border-zinc-300 dark:border-zinc-700 overflow-hidden">
+                    <QuillEditor
+                        value={formData.description}
+                        onChange={(html) => setFormData((f) => ({ ...f, description: html }))}
+                        modules={quillModules}
+                        formats={quillFormats}
+                    />
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function EditTaskDialog({ isOpen, onClose, task, groups }) {
     const { getToken } = useAuth();
@@ -24,12 +97,14 @@ export default function EditTaskDialog({ isOpen, onClose, task, groups }) {
     const [formData, setFormData] = useState({
         title: "",
         description: "",
+        descriptionType: "text",
         type: "TASK",
         status: "TODO",
         priority: "MEDIUM",
         due_date: "",
         groupIds: [],
     });
+    const [htmlPreview, setHtmlPreview] = useState(false);
 
     const groupMap = useMemo(
         () => new Map((groups || []).map((g) => [g.id, g])),
@@ -44,12 +119,14 @@ export default function EditTaskDialog({ isOpen, onClose, task, groups }) {
         setFormData({
             title: task.title || "",
             description: task.description || "",
+            descriptionType: task.descriptionType || "text",
             type: task.type || "TASK",
             status: task.status || "TODO",
             priority: task.priority || "MEDIUM",
             due_date: task.due_date ? format(toIST(task.due_date), "yyyy-MM-dd") : "",
             groupIds: taskGroupIds,
         });
+        setHtmlPreview(false);
 
         setGroupMemberSelections(() => {
             const next = {};
@@ -219,13 +296,14 @@ const handleSubmit = async (e) => {
                             </div>
 
                             {!isDesktop && (
-                                <><label className="block text-sm mb-2">Description</label><div className="rounded border border-zinc-300 dark:border-zinc-700 overflow-hidden">
-                                    <QuillEditor
-                                        value={formData.description}
-                                        onChange={(html) => setFormData({ ...formData, description: html })}
-                                        modules={quillModules}
-                                        formats={quillFormats} />
-                                </div></>
+                                <DescriptionEditor
+                                    formData={formData}
+                                    setFormData={setFormData}
+                                    htmlPreview={htmlPreview}
+                                    setHtmlPreview={setHtmlPreview}
+                                    quillModules={quillModules}
+                                    quillFormats={quillFormats}
+                                />
                             )}
 
                             <div className="grid grid-cols-2 gap-4">
@@ -334,15 +412,14 @@ const handleSubmit = async (e) => {
 
                         {isDesktop && (
                             <div className="h-full border-t lg:border-t-0 lg:border-l border-zinc-200 dark:border-zinc-800 p-6 overflow-y-auto">
-                                <label className="block text-sm mb-2">Description</label>
-                                <div className="rounded border border-zinc-300 dark:border-zinc-700 overflow-hidden">
-                                    <QuillEditor
-                                        value={formData.description}
-                                        onChange={(html) => setFormData({ ...formData, description: html })}
-                                        modules={quillModules}
-                                        formats={quillFormats}
-                                    />
-                                </div>
+                                <DescriptionEditor
+                                    formData={formData}
+                                    setFormData={setFormData}
+                                    htmlPreview={htmlPreview}
+                                    setHtmlPreview={setHtmlPreview}
+                                    quillModules={quillModules}
+                                    quillFormats={quillFormats}
+                                />
                             </div>
                         )}
                     </div>

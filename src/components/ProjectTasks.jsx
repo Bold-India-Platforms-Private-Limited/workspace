@@ -6,7 +6,7 @@ import { toIST } from "../configs/timezone";
 import { useAuth } from "../auth/AuthContext";
 import { useDispatch, useSelector } from "react-redux";
 import { deleteTask, updateTask } from "../features/workspaceSlice";
-import { Bug, CalendarIcon, GitCommit, MessageSquare, Square, Trash, XIcon, Zap, PencilIcon, Eye } from "lucide-react";
+import { Bug, CalendarIcon, GitCommit, MessageSquare, Square, Trash, XIcon, Zap, PencilIcon, Eye, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import EditTaskDialog from "./EditTaskDialog";
 
@@ -254,6 +254,7 @@ const ProjectTasks = ({ tasks, groups }) => {
                                     <th className="px-4 py-3">Groups</th>
                                     <th className="px-4 py-3">Assignee</th>
                                     <th className="px-4 py-3">Due Date</th>
+                                    <th className="px-4 py-3"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -346,6 +347,16 @@ const ProjectTasks = ({ tasks, groups }) => {
                                                         <CalendarIcon className="size-4" />
                                                         {format(toIST(task.due_date), "dd MMMM")}
                                                     </div>
+                                                </td>
+                                                <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => navigate(`/taskDetails?projectId=${task.projectId}&taskId=${task.id}`)}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-800/40 transition whitespace-nowrap"
+                                                    >
+                                                        <ExternalLink className="size-3" />
+                                                        View task
+                                                    </button>
                                                 </td>
                                             </tr>
                                         );
@@ -450,6 +461,13 @@ const ProjectTasks = ({ tasks, groups }) => {
                                                 className="inline-flex items-center gap-1 px-2 py-1 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
                                             >
                                                 <Eye className="size-3" /> Assignees
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate(`/taskDetails?projectId=${task.projectId}&taskId=${task.id}`)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-800/40 transition"
+                                            >
+                                                <ExternalLink className="size-3" /> View task
                                             </button>
                                         </div>
                                     </div>

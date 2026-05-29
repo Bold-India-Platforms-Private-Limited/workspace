@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { toIST } from "../configs/timezone";
-import { CalendarIcon, PenIcon } from "lucide-react";
+import { CalendarIcon, PenIcon, Maximize2, X } from "lucide-react";
 import { useSelector } from "react-redux";
 import { useAuth } from "../auth/AuthContext";
 import DOMPurify from "dompurify";
@@ -15,6 +15,9 @@ const TaskDetails = () => {
     const [task, setTask] = useState(null);
     const [project, setProject] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [htmlModalOpen, setHtmlModalOpen] = useState(false);
+    const [showAllAssignees, setShowAllAssignees] = useState(false);
+    const ASSIGNEE_LIMIT = 10;
 
     const { currentWorkspace } = useSelector((state) => state.workspace);
     const { user } = useAuth();
@@ -68,10 +71,10 @@ const TaskDetails = () => {
     if (loading) return <div className="text-gray-500 dark:text-zinc-400 px-4 py-6">Loading task details...</div>;
     if (!task) return <div className="text-red-500 px-4 py-6">Task not found.</div>;
 
+    const isHtmlTask = task?.descriptionType === "html";
     const rawDescription = task?.description || "";
-    const hasHtmlTags = /<\s*\/?[a-z][\s\S]*>/i.test(rawDescription);
-    const descriptionHtml = rawDescription
-        ? DOMPurify.sanitize(hasHtmlTags ? rawDescription : rawDescription.replace(/\n/g, "<br />"), {
+    const descriptionHtml = !isHtmlTask && rawDescription
+        ? DOMPurify.sanitize(/<\s*\/?[a-z][\s\S]*>/i.test(rawDescription) ? rawDescription : rawDescription.replace(/\n/g, "<br />"), {
             ALLOWED_TAGS: ["p", "b", "i", "u", "strong", "em", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "blockquote", "code", "pre", "span", "div", "br"],
             ALLOWED_ATTR: ["style", "class", "align"],
             ALLOW_STYLE: true,
@@ -87,6 +90,7 @@ const TaskDetails = () => {
     };
 
     return (
+        <>
         <div className="flex flex-col gap-6 sm:p-4 text-gray-900 dark:text-zinc-100 max-w-6xl mx-auto">
             {/* Task + Project Info */}
             <div className="w-full flex flex-col gap-6">
@@ -111,22 +115,41 @@ const TaskDetails = () => {
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="text-xs text-zinc-500 dark:text-zinc-400">Assigned to</span>
                             {(() => {
-                                const displayAssignees = filterAssignees(task.assignees);
-                                return displayAssignees.length > 0 ? (
-                                    displayAssignees.map((a) => (
-                                        <span key={a.id} className="flex items-center gap-2 px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-800 text-xs">
-                                            {a.user?.image ? (
-                                                <img src={a.user.image} className="size-5 rounded-full object-cover" alt="avatar" />
-                                            ) : (
-                                                <span className="size-5 rounded-full bg-zinc-300 dark:bg-zinc-700 text-[9px] font-semibold text-zinc-700 dark:text-zinc-200 flex items-center justify-center">
-                                                    {getInitials(a.user?.name || a.user?.email)}
-                                                </span>
-                                            )}
-                                            {a.user?.name || a.user?.email}
-                                        </span>
-                                    ))
-                                ) : (
-                                    <span>Unassigned</span>
+                                const allAssignees = filterAssignees(task.assignees);
+                                if (allAssignees.length === 0) return <span>Unassigned</span>;
+                                const visible = showAllAssignees ? allAssignees : allAssignees.slice(0, ASSIGNEE_LIMIT);
+                                const remaining = allAssignees.length - ASSIGNEE_LIMIT;
+                                return (
+                                    <>
+                                        {visible.map((a) => (
+                                            <span key={a.id} className="flex items-center gap-2 px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-800 text-xs">
+                                                {a.user?.image ? (
+                                                    <img src={a.user.image} className="size-5 rounded-full object-cover" alt="avatar" />
+                                                ) : (
+                                                    <span className="size-5 rounded-full bg-zinc-300 dark:bg-zinc-700 text-[9px] font-semibold text-zinc-700 dark:text-zinc-200 flex items-center justify-center">
+                                                        {getInitials(a.user?.name || a.user?.email)}
+                                                    </span>
+                                                )}
+                                                {a.user?.name || a.user?.email}
+                                            </span>
+                                        ))}
+                                        {!showAllAssignees && remaining > 0 && (
+                                            <button
+                                                onClick={() => setShowAllAssignees(true)}
+                                                className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/40 transition font-medium"
+                                            >
+                                                +{remaining} more
+                                            </button>
+                                        )}
+                                        {showAllAssignees && allAssignees.length > ASSIGNEE_LIMIT && (
+                                            <button
+                                                onClick={() => setShowAllAssignees(false)}
+                                                className="text-xs px-2 py-1 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-600 transition"
+                                            >
+                                                Show less
+                                            </button>
+                                        )}
+                                    </>
                                 );
                             })()}
                         </div>
@@ -137,10 +160,22 @@ const TaskDetails = () => {
                     </div>
 
                     {task.description && (
-                        <div
-                            className="description-content text-sm text-gray-600 dark:text-white leading-relaxed break-words"
-                            dangerouslySetInnerHTML={{ __html: descriptionHtml }}
-                        />
+                        isHtmlTask ? (
+                            <div className="mt-2">
+                                <button
+                                    onClick={() => setHtmlModalOpen(true)}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition"
+                                >
+                                    <Maximize2 className="size-4" />
+                                    View task in detail
+                                </button>
+                            </div>
+                        ) : (
+                            <div
+                                className="description-content text-sm text-gray-600 dark:text-white leading-relaxed break-words"
+                                dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+                            />
+                        )
                     )}
                 </div>
 
@@ -159,6 +194,45 @@ const TaskDetails = () => {
                 )}
             </div>
         </div>
+
+            {/* HTML Webpage Modal */}
+
+            {htmlModalOpen && isHtmlTask && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8"
+                    onClick={() => setHtmlModalOpen(false)}
+                >
+                    <div
+                        className="relative bg-white dark:bg-zinc-950 rounded-xl shadow-2xl flex flex-col w-full max-w-5xl"
+                        style={{ height: "85vh" }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal header */}
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 shrink-0 rounded-t-xl bg-zinc-50 dark:bg-zinc-900">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <Maximize2 className="size-4 text-blue-500 shrink-0" />
+                                <span className="text-sm font-semibold text-zinc-900 dark:text-white truncate">{task.title}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-mono shrink-0">HTML</span>
+                            </div>
+                            <button
+                                onClick={() => setHtmlModalOpen(false)}
+                                className="p-1.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition shrink-0 ml-3"
+                            >
+                                <X className="size-4" />
+                            </button>
+                        </div>
+
+                        {/* Iframe fills remaining height, browser handles internal scroll */}
+                        <iframe
+                            srcDoc={rawDescription}
+                            title={task.title}
+                            sandbox="allow-scripts"
+                            className="flex-1 w-full rounded-b-xl bg-white"
+                        />
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 

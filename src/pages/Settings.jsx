@@ -33,6 +33,9 @@ export default function Settings() {
     const [editingMobile, setEditingMobile] = useState(false);
     const [mobileInput, setMobileInput] = useState("");
     const [savingMobile, setSavingMobile] = useState(false);
+    const [editingName, setEditingName] = useState(false);
+    const [nameInput, setNameInput] = useState("");
+    const [savingName, setSavingName] = useState(false);
     const [currentTime, setCurrentTime] = useState(nowIST());
     const [notificationForm, setNotificationForm] = useState({
         title: "",
@@ -145,6 +148,24 @@ export default function Settings() {
             toast.error(err?.response?.data?.message || "Failed to update mobile");
         } finally {
             setSavingMobile(false);
+        }
+    };
+
+    const saveName = async () => {
+        if (!nameInput.trim()) { toast.error("Name cannot be empty"); return; }
+        setSavingName(true);
+        try {
+            const token = await getToken();
+            const res = await api.put("/api/users/me/name", { name: nameInput.trim() }, { headers: { Authorization: `Bearer ${token}` } });
+            // Update stored user so navbar/header reflects new name immediately
+            const stored = JSON.parse(localStorage.getItem("user") || "{}");
+            localStorage.setItem("user", JSON.stringify({ ...stored, name: res.data.user.name }));
+            setEditingName(false);
+            toast.success("Name updated — please refresh to see it everywhere");
+        } catch (err) {
+            toast.error(err?.response?.data?.message || "Failed to update name");
+        } finally {
+            setSavingName(false);
         }
     };
 
@@ -342,6 +363,48 @@ export default function Settings() {
                                     </p>
                                     <p className="text-sm text-gray-600 dark:text-zinc-500 capitalize">{user?.role || "MEMBER"} Account</p>
                                 </div>
+                            </div>
+
+                            {/* Display Name */}
+                            <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4">
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                        <UserIcon className="size-4 text-zinc-400" />
+                                        Display Name
+                                    </div>
+                                    {!editingName && (
+                                        <button
+                                            onClick={() => { setNameInput(user?.name || ""); setEditingName(true); }}
+                                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                                        >
+                                            <Pencil className="size-3" /> Edit
+                                        </button>
+                                    )}
+                                </div>
+                                {editingName ? (
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Your full name"
+                                            value={nameInput}
+                                            onChange={(e) => setNameInput(e.target.value)}
+                                            onKeyDown={(e) => e.key === "Enter" && saveName()}
+                                            autoFocus
+                                            maxLength={60}
+                                            className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-blue-500"
+                                        />
+                                        <button onClick={saveName} disabled={savingName}
+                                            className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition">
+                                            <Check className="size-4" />
+                                        </button>
+                                        <button onClick={() => setEditingName(false)}
+                                            className="p-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
+                                            <X className="size-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm mt-1 text-zinc-600 dark:text-zinc-400 font-medium">{user?.name || "—"}</p>
+                                )}
                             </div>
 
                             {/* Mobile Number */}

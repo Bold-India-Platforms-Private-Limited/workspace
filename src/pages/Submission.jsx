@@ -126,14 +126,15 @@ const MemberView = ({ workspaceId, getToken }) => {
     const [submission, setSubmission] = useState(null)
     const [driveLink, setDriveLink] = useState('')
     const [note, setNote] = useState('')
-    const [loading, setLoading] = useState(true)
+    const [fetching, setFetching] = useState(false)
     const [saving, setSaving] = useState(false)
     const [deleting, setDeleting] = useState(false)
     const [error, setError] = useState('')
 
     useEffect(() => {
         if (!workspaceId) return
-        const fetch = async () => {
+        setFetching(true)
+        const load = async () => {
             try {
                 const token = await getToken()
                 const r = await axios.get(`${API}/api/submissions/me?workspaceId=${workspaceId}`, {
@@ -147,10 +148,10 @@ const MemberView = ({ workspaceId, getToken }) => {
             } catch {
                 // no existing submission is fine
             } finally {
-                setLoading(false)
+                setFetching(false)
             }
         }
-        fetch()
+        load()
     }, [workspaceId])
 
     const save = async () => {
@@ -191,24 +192,22 @@ const MemberView = ({ workspaceId, getToken }) => {
         }
     }
 
-    if (loading) return (
-        <div className="space-y-3 animate-pulse">
-            <div className="h-64 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
-            <div className="h-28 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
-        </div>
-    )
-
     return (
         <div className="space-y-5">
-            {/* Instructions — always visible */}
-            <Instructions />
-
-            {/* Submission form */}
-            <div className="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-4">
+            {/* ── Submission form — always visible at top ── */}
+            <div className="rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-white dark:bg-zinc-900 p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                    <h2 className="font-semibold text-zinc-800 dark:text-zinc-100">Your Submission</h2>
-                    {submission && (
-                        <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-medium">
+                    <div>
+                        <h2 className="font-bold text-zinc-800 dark:text-zinc-100 text-base">Submit Your Google Drive Link</h2>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                            Create your own Google Drive folder, make it public, and paste the link below.
+                        </p>
+                    </div>
+                    {fetching && (
+                        <span className="text-xs text-zinc-400 animate-pulse">Loading…</span>
+                    )}
+                    {!fetching && submission && (
+                        <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-medium shrink-0">
                             <CheckCircle2 size={12} /> Submitted
                         </span>
                     )}
@@ -225,7 +224,7 @@ const MemberView = ({ workspaceId, getToken }) => {
                 {/* Drive link input */}
                 <div>
                     <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-                        Google Drive Master Folder Link <span className="text-red-500">*</span>
+                        Your Google Drive Folder Link <span className="text-red-500">*</span>
                     </label>
                     <div className="flex gap-2">
                         <div className="relative flex-1">
@@ -236,13 +235,14 @@ const MemberView = ({ workspaceId, getToken }) => {
                                 onChange={e => { setDriveLink(e.target.value); setError('') }}
                                 onKeyDown={e => e.key === 'Enter' && save()}
                                 placeholder="https://drive.google.com/drive/folders/..."
-                                className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                style={{ backgroundColor: 'white', border: '1.5px solid #d1d5db', color: '#111827' }}
+                                className="w-full pl-9 pr-3 py-3 text-sm rounded-lg placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
                         <button
                             onClick={save}
                             disabled={saving || !driveLink.trim()}
-                            className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors shrink-0"
+                            className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors shrink-0"
                         >
                             {saving ? 'Saving…' : submission ? 'Update' : 'Submit'}
                         </button>
@@ -252,7 +252,6 @@ const MemberView = ({ workspaceId, getToken }) => {
                             <AlertCircle size={12} /> {error}
                         </p>
                     )}
-                    <p className="text-xs text-zinc-400 mt-1">Paste the link to your own public Google Drive folder.</p>
                 </div>
 
                 {/* Optional note */}
@@ -265,28 +264,32 @@ const MemberView = ({ workspaceId, getToken }) => {
                         onChange={e => setNote(e.target.value)}
                         rows={2}
                         placeholder="e.g. 'Demo video is in the Demo Video folder. Backend is Node.js + Express.'"
-                        className="w-full text-sm px-3 py-2.5 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                        style={{ backgroundColor: 'white', border: '1.5px solid #d1d5db', color: '#111827' }}
+                        className="w-full text-sm px-3 py-2.5 rounded-lg placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     />
                 </div>
 
-                {/* Submitted info */}
+                {/* Submitted info row */}
                 {submission && (
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-zinc-800">
-                        <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-gray-100 dark:border-zinc-800">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <a href={submission.driveLink} target="_blank" rel="noreferrer"
                                 className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
-                                <ExternalLink size={14} /> Open submitted link
+                                <ExternalLink size={14} /> Open my submitted link
                             </a>
                             <span className="text-zinc-300 dark:text-zinc-700">·</span>
                             <span className="text-xs text-zinc-400">{new Date(submission.submittedAt).toLocaleString()}</span>
                         </div>
                         <button onClick={remove} disabled={deleting}
-                            className="text-xs text-red-500 hover:text-red-600 disabled:opacity-50">
-                            {deleting ? 'Removing…' : 'Remove'}
+                            className="text-xs text-red-500 hover:text-red-600 disabled:opacity-50 transition-colors">
+                            {deleting ? 'Removing…' : 'Remove submission'}
                         </button>
                     </div>
                 )}
             </div>
+
+            {/* ── Instructions ── */}
+            <Instructions />
         </div>
     )
 }

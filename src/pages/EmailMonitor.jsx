@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useSelector } from "react-redux";
 import api from "../configs/api";
-import { Mail, Search, MessageCircle, Eye } from "lucide-react";
+import { Mail, Search, Eye, Trash2 } from "lucide-react";
 import { TIMEZONE } from "../configs/timezone";
 import toast from "react-hot-toast";
 
@@ -19,6 +19,8 @@ const EmailMonitor = () => {
     const [page, setPage] = useState(1);
     const [selectedEmail, setSelectedEmail] = useState(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
 
     const fetchEmails = async () => {
         if (!currentWorkspace) return;
@@ -63,6 +65,41 @@ const EmailMonitor = () => {
 
     const totalPages = Math.ceil(filteredEmails.length / PAGE_SIZE) || 1;
 
+    const deleteLog = async (id) => {
+        if (!confirm("Delete this log entry?")) return;
+        try {
+            setDeletingId(id);
+            await api.delete(`/api/emails/${id}`, {
+                headers: { Authorization: `Bearer ${await getToken()}` },
+            });
+            setEmails((prev) => prev.filter((e) => e.id !== id));
+            if (selectedEmail?.id === id) setIsPreviewOpen(false);
+            toast.success("Log deleted");
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const bulkDelete = async (status) => {
+        const label = status ? `all ${status} logs` : "all logs";
+        if (!confirm(`Delete ${label}? This cannot be undone.`)) return;
+        try {
+            setBulkDeleting(true);
+            const { data } = await api.delete(`/api/emails/bulk`, {
+                headers: { Authorization: `Bearer ${await getToken()}` },
+                data: { workspaceId: currentWorkspace.id, ...(status ? { status } : {}) },
+            });
+            setEmails((prev) => status ? prev.filter((e) => e.status !== status) : []);
+            toast.success(`Deleted ${data.count} log(s)`);
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setBulkDeleting(false);
+        }
+    };
+
     const getStatusColor = (status) => {
         switch (status) {
             case "sent":
@@ -105,9 +142,29 @@ const EmailMonitor = () => {
     return (
         <div className="space-y-6 max-w-6xl mx-auto">
             {/* Header */}
-            <div className="flex items-center gap-2">
-                <Mail className="size-6" />
-                <h1 className="text-xl font-semibold">Email Monitor</h1>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                    <Mail className="size-6" />
+                    <h1 className="text-xl font-semibold">Email Monitor</h1>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                        onClick={() => bulkDelete("failed")}
+                        disabled={bulkDeleting || emails.filter((e) => e.status === "failed").length === 0}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    >
+                        <Trash2 className="size-3" />
+                        Clear Failed
+                    </button>
+                    <button
+                        onClick={() => bulkDelete(null)}
+                        disabled={bulkDeleting || emails.length === 0}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    >
+                        <Trash2 className="size-3" />
+                        Clear All
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -231,16 +288,26 @@ const EmailMonitor = () => {
                                             </div>
                                         </td>
                                         <td className="px-4 sm:px-6 py-3 text-center">
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedEmail(email);
-                                                    setIsPreviewOpen(true);
-                                                }}
-                                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
-                                            >
-                                                <Eye className="size-3" />
-                                                <span className="hidden sm:inline">Preview</span>
-                                            </button>
+                                            <div className="flex items-center justify-center gap-1.5">
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedEmail(email);
+                                                        setIsPreviewOpen(true);
+                                                    }}
+                                                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+                                                >
+                                                    <Eye className="size-3" />
+                                                    <span className="hidden sm:inline">Preview</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => deleteLog(email.id)}
+                                                    disabled={deletingId === email.id}
+                                                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 transition"
+                                                >
+                                                    <Trash2 className="size-3" />
+                                                    <span className="hidden sm:inline">Delete</span>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

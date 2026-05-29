@@ -3,7 +3,7 @@ import { useSelector } from "react-redux";
 import { useAuth } from "../auth/AuthContext";
 import api from "../configs/api";
 import toast from "react-hot-toast";
-import { CalendarDays, Clock, CheckCircle2, XCircle, AlertCircle, Plus, X, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { CalendarDays, Clock, CheckCircle2, XCircle, AlertCircle, Plus, X, Trash2, ChevronDown, ChevronUp, Square, CheckSquare } from "lucide-react";
 
 const TYPE_LABELS = { LEAVE: "Leave", WORK_FROM_HOME: "Work From Home", HALF_DAY: "Half Day" };
 const TYPE_COLORS = {
@@ -165,7 +165,7 @@ function InternView({ workspaceId, getToken }) {
 }
 
 // ─── Leave Card (shared) ──────────────────────────────────────────────────────
-function LeaveCard({ leave, onCancel, showCancel, showUser, onReview }) {
+function LeaveCard({ leave, onCancel, showCancel, showUser, onReview, selectable, selected, onToggleSelect }) {
     const [expanded, setExpanded] = useState(false);
     const [reviewNote, setReviewNote] = useState("");
     const [reviewing, setReviewing] = useState(false);
@@ -177,9 +177,15 @@ function LeaveCard({ leave, onCancel, showCancel, showUser, onReview }) {
     };
 
     return (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4">
+        <div className={`bg-white dark:bg-zinc-900 border rounded-xl p-4 transition-colors ${selected ? "border-blue-400 dark:border-blue-500 ring-1 ring-blue-300 dark:ring-blue-700" : "border-zinc-200 dark:border-zinc-800"}`}>
             <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
+                    {/* Checkbox for selectable (pending) cards */}
+                    {selectable && (
+                        <button onClick={onToggleSelect} className="mt-0.5 shrink-0 text-zinc-400 hover:text-blue-600 transition">
+                            {selected ? <CheckSquare className="size-4 text-blue-600" /> : <Square className="size-4" />}
+                        </button>
+                    )}
                     {showUser && leave.user && (
                         <div className="size-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-xs font-bold text-zinc-600 dark:text-zinc-300 shrink-0">
                             {leave.user.name?.[0]?.toUpperCase()}
@@ -257,9 +263,12 @@ function AdminView({ workspaceId, getToken }) {
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState("PENDING");
     const [search, setSearch] = useState("");
+    const [selected, setSelected] = useState(new Set());
+    const [bulkActing, setBulkActing] = useState(false);
 
     const fetchLeaves = useCallback(async () => {
         setLoading(true);
+        setSelected(new Set());
         try {
             const token = await getToken();
             const params = `workspaceId=${workspaceId}${filter !== "ALL" ? `&status=${filter}` : ""}`;
@@ -280,9 +289,43 @@ function AdminView({ workspaceId, getToken }) {
         } catch (err) { toast.error(err?.response?.data?.message || "Failed"); }
     };
 
+    const bulkReview = async (status) => {
+        if (selected.size === 0) return;
+        setBulkActing(true);
+        try {
+            const token = await getToken();
+            await api.put("/api/leave/bulk-review", { ids: [...selected], status }, { headers: { Authorization: `Bearer ${token}` } });
+            toast.success(`${selected.size} request(s) ${status.toLowerCase()}`);
+            fetchLeaves();
+        } catch (err) {
+            toast.error(err?.response?.data?.message || "Bulk action failed");
+        } finally {
+            setBulkActing(false);
+        }
+    };
+
     const filtered = leaves.filter(l =>
         !search || l.user?.name?.toLowerCase().includes(search.toLowerCase()) || l.user?.email?.toLowerCase().includes(search.toLowerCase())
     );
+
+    const pendingFiltered = filtered.filter(l => l.status === "PENDING");
+    const allPendingSelected = pendingFiltered.length > 0 && pendingFiltered.every(l => selected.has(l.id));
+
+    const toggleSelect = (id) => {
+        setSelected(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (allPendingSelected) {
+            setSelected(new Set());
+        } else {
+            setSelected(new Set(pendingFiltered.map(l => l.id)));
+        }
+    };
 
     const counts = {
         PENDING: leaves.filter(l => l.status === "PENDING").length,
@@ -291,10 +334,10 @@ function AdminView({ workspaceId, getToken }) {
     };
 
     const TABS = [
-        { key: "PENDING", label: `Pending`, count: counts.PENDING, color: "text-yellow-600" },
-        { key: "APPROVED", label: "Approved", count: counts.APPROVED, color: "text-green-600" },
-        { key: "REJECTED", label: "Rejected", count: counts.REJECTED, color: "text-red-600" },
-        { key: "ALL", label: "All", count: null, color: "text-zinc-600" },
+        { key: "PENDING", label: "Pending", count: counts.PENDING },
+        { key: "APPROVED", label: "Approved", count: counts.APPROVED },
+        { key: "REJECTED", label: "Rejected", count: counts.REJECTED },
+        { key: "ALL", label: "All", count: null },
     ];
 
     return (
@@ -304,7 +347,6 @@ function AdminView({ workspaceId, getToken }) {
                     <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100">Leave Requests</h2>
                     <p className="text-sm text-zinc-500">Review and manage intern leave, WFH, and half-day requests</p>
                 </div>
-                {/* Summary chips */}
                 <div className="flex gap-2 text-xs">
                     {counts.PENDING > 0 && (
                         <span className="px-2.5 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 font-medium">
@@ -321,7 +363,7 @@ function AdminView({ workspaceId, getToken }) {
             <div className="flex flex-wrap items-center gap-3">
                 <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden text-xs">
                     {TABS.map(t => (
-                        <button key={t.key} onClick={() => setFilter(t.key)}
+                        <button key={t.key} onClick={() => { setFilter(t.key); setSelected(new Set()); }}
                             className={`px-3 py-2 font-medium transition ${filter === t.key ? "bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900" : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}>
                             {t.label}{t.count != null ? ` (${t.count})` : ""}
                         </button>
@@ -331,6 +373,19 @@ function AdminView({ workspaceId, getToken }) {
                     placeholder="Search by name or email…"
                     className="flex-1 min-w-40 px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-blue-500" />
             </div>
+
+            {/* Select-all row — only when pending requests are visible */}
+            {!loading && pendingFiltered.length > 0 && (
+                <div className="flex items-center gap-3 px-1">
+                    <button onClick={toggleSelectAll}
+                        className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition">
+                        {allPendingSelected
+                            ? <CheckSquare className="size-4 text-blue-600" />
+                            : <Square className="size-4" />}
+                        {allPendingSelected ? "Deselect all" : `Select all pending (${pendingFiltered.length})`}
+                    </button>
+                </div>
+            )}
 
             {loading ? (
                 <div className="text-center py-10 text-zinc-400 text-sm">Loading…</div>
@@ -342,9 +397,49 @@ function AdminView({ workspaceId, getToken }) {
             ) : (
                 <div className="space-y-2">
                     {filtered.map(l => (
-                        <LeaveCard key={l.id} leave={l} showUser
-                            onReview={l.status === "PENDING" ? review : null} />
+                        <LeaveCard
+                            key={l.id}
+                            leave={l}
+                            showUser
+                            onReview={l.status === "PENDING" ? review : null}
+                            selectable={l.status === "PENDING"}
+                            selected={selected.has(l.id)}
+                            onToggleSelect={() => toggleSelect(l.id)}
+                        />
                     ))}
+                </div>
+            )}
+
+            {/* Floating bulk action bar */}
+            {selected.size > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-zinc-900 dark:bg-zinc-100 shadow-2xl border border-zinc-700 dark:border-zinc-300">
+                    <span className="text-sm font-medium text-zinc-100 dark:text-zinc-800">
+                        {selected.size} selected
+                    </span>
+                    <div className="w-px h-5 bg-zinc-700 dark:bg-zinc-300" />
+                    <button
+                        onClick={() => bulkReview("APPROVED")}
+                        disabled={bulkActing}
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-sm font-semibold transition"
+                    >
+                        <CheckCircle2 className="size-4" />
+                        {bulkActing ? "Processing…" : "Approve All"}
+                    </button>
+                    <button
+                        onClick={() => bulkReview("REJECTED")}
+                        disabled={bulkActing}
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-semibold transition"
+                    >
+                        <XCircle className="size-4" />
+                        Reject All
+                    </button>
+                    <button
+                        onClick={() => setSelected(new Set())}
+                        className="p-1.5 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-zinc-200 dark:hover:text-zinc-700 transition"
+                        title="Clear selection"
+                    >
+                        <X className="size-4" />
+                    </button>
                 </div>
             )}
         </div>

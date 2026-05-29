@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom'
 import Layout from './pages/Layout'
 import { Toaster } from 'react-hot-toast'
 import Dashboard from './pages/Dashboard'
+import EmailProgressToast from './components/EmailProgressToast'
 
 // Lazy-load non-critical routes to reduce initial bundle
 const Projects = lazy(() => import('./pages/Projects'))
@@ -33,6 +34,7 @@ const App = () => {
     return (
         <>
             <Toaster />
+            <EmailProgressToast />
             <Routes>
                 <Route path="/" element={<Layout />}>
                     <Route index element={<Dashboard />} />

@@ -52,71 +52,126 @@ const FOLDERS = [
 ]
 
 // ── Instructions panel ────────────────────────────────────────────────────────
+const STEPS = [
+    {
+        n: 1,
+        title: 'Create a master folder',
+        text: <>Go to <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">drive.google.com</a> and create a new folder named like <span className="font-semibold text-zinc-700 dark:text-zinc-200">YourName_Submission</span> <span className="text-zinc-400">(e.g. Alex_ChatBot)</span></>,
+        icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+            </svg>
+        ),
+    },
+    {
+        n: 2,
+        title: 'Add the 5 required sub-folders',
+        text: <>Inside your master folder, create all <span className="font-semibold text-zinc-700 dark:text-zinc-200">5 sub-folders</span> listed below and upload your files into each one</>,
+        icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H7m0 0l4-4m-4 4l4 4M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+        ),
+    },
+    {
+        n: 3,
+        title: 'Make the folder public',
+        text: <><span className="font-semibold text-zinc-700 dark:text-zinc-200">Right-click</span> your master folder → <span className="font-semibold text-zinc-700 dark:text-zinc-200">Share</span> → set access to <span className="font-semibold text-zinc-700 dark:text-zinc-200">"Anyone with the link"</span> → role: <span className="font-semibold text-zinc-700 dark:text-zinc-200">Viewer</span></>,
+        icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+            </svg>
+        ),
+    },
+    {
+        n: 4,
+        title: 'Paste the link & submit',
+        text: <>Click <span className="font-semibold text-zinc-700 dark:text-zinc-200">Copy link</span> in Drive, paste it in the form above, then hit <span className="font-semibold text-zinc-700 dark:text-zinc-200">Submit</span></>,
+        icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+            </svg>
+        ),
+    },
+]
+
 const Instructions = () => (
-    <div className="rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 p-5 space-y-5">
-        <div className="flex items-start gap-3">
-            <Info size={20} className="text-blue-500 mt-0.5 shrink-0" />
-            <div>
-                <p className="font-semibold text-blue-800 dark:text-blue-300 text-base">How to submit your project</p>
-                <p className="text-sm text-blue-700 dark:text-blue-400 mt-0.5">
-                    Create your own Google Drive master folder, organise your work into the 5 sub-folders below, make it public, and paste the link here.
-                </p>
+    <div className="space-y-4">
+        {/* Header */}
+        <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700/60">
+            {/* Banner */}
+            <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-6 py-5">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 className="text-white font-bold text-base leading-tight">How to submit your project</h3>
+                        <p className="text-blue-100 text-xs mt-0.5">4 simple steps — takes less than 2 minutes</p>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        {/* Steps */}
-        <ol className="space-y-2.5 ml-1">
-            {[
-                {
-                    n: 1,
-                    text: <>Go to <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="underline font-medium">drive.google.com</a> and create a new folder — name it like <em className="font-medium">YourName_Submission</em> (e.g. <em>Alex_ChatBot</em>)</>,
-                },
-                {
-                    n: 2,
-                    text: <>Inside that folder, create the <strong>5 sub-folders</strong> shown below and upload your files into each one</>,
-                },
-                {
-                    n: 3,
-                    text: <><strong>Right-click</strong> your master folder → <strong>Share</strong> → change access to <strong>"Anyone with the link"</strong> → set role to <strong>Viewer</strong></>,
-                },
-                {
-                    n: 4,
-                    text: <>Click <strong>Copy link</strong> and paste it in the form below, then hit <strong>Submit</strong></>,
-                },
-            ].map(({ n, text }) => (
-                <li key={n} className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{n}</span>
-                    <p className="text-sm text-blue-800 dark:text-blue-300">{text}</p>
-                </li>
-            ))}
-        </ol>
-
-        {/* Sub-folder structure */}
-        <div>
-            <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wide mb-2">
-                Required sub-folders inside your master folder
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {FOLDERS.map(({ icon: Icon, color, label, desc, example }) => (
-                    <div key={label} className="flex items-start gap-3 bg-white dark:bg-zinc-900 rounded-lg p-3 border border-blue-100 dark:border-blue-900">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${color}`}>
-                            <Icon size={15} />
+            {/* Steps */}
+            <div className="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
+                {STEPS.map(({ n, title, text, icon }) => (
+                    <div key={n} className="flex items-start gap-4 px-5 py-4">
+                        {/* Step number + icon stack */}
+                        <div className="shrink-0 flex flex-col items-center gap-1">
+                            <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shadow-sm shadow-blue-200 dark:shadow-none">
+                                {n}
+                            </div>
+                            {n < 4 && <div className="w-px flex-1 min-h-[16px] bg-blue-100 dark:bg-zinc-700" />}
                         </div>
-                        <div>
-                            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 leading-tight">{label}</p>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400">{desc}</p>
-                            <p className="text-xs text-zinc-400 dark:text-zinc-500 italic mt-0.5">{example}</p>
+                        <div className="pt-1 pb-2">
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-blue-500 dark:text-blue-400">{icon}</span>
+                                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{title}</p>
+                            </div>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{text}</p>
                         </div>
                     </div>
                 ))}
             </div>
         </div>
 
-        <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2.5">
-            <AlertCircle size={14} className="text-amber-500 mt-0.5 shrink-0" />
-            <p className="text-xs text-amber-700 dark:text-amber-400">
-                <strong>Important:</strong> Make sure your Drive folder is set to <strong>"Anyone with the link"</strong> (Viewer) before submitting — otherwise reviewers cannot open it.
-            </p>
+        {/* Required sub-folders */}
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-700/60 overflow-hidden bg-white dark:bg-zinc-900">
+            <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
+                <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+                </svg>
+                <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Required sub-folders inside your master folder</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-zinc-100 dark:bg-zinc-800">
+                {FOLDERS.map(({ icon: Icon, color, label, desc, example }) => (
+                    <div key={label} className="flex items-start gap-3 bg-white dark:bg-zinc-900 px-4 py-3.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
+                            <Icon size={16} />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 leading-tight">{label}</p>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{desc}</p>
+                            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 italic mt-0.5 truncate">{example}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+
+        {/* Warning */}
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-3.5">
+            <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
+                <AlertCircle size={15} className="text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Make your folder public before submitting</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                    Set sharing to <strong>"Anyone with the link → Viewer"</strong> — otherwise reviewers will get an access denied error.
+                </p>
+            </div>
         </div>
     </div>
 )

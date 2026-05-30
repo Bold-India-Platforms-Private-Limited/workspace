@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
 import { useSelector } from 'react-redux'
 import { useAuth } from '../auth/AuthContext'
+import api from '../configs/api'
 import toast from 'react-hot-toast'
 import {
     FolderOpen, Link2, ExternalLink, CheckCircle2, Clock,
@@ -9,8 +9,6 @@ import {
     FileCode2, Database, FileText, Film, MonitorPlay,
     Info, Users, Copy, AlertCircle,
 } from 'lucide-react'
-
-const API = import.meta.env.VITE_API_URL
 
 // ── Folder structure ──────────────────────────────────────────────────────────
 const FOLDERS = [
@@ -177,7 +175,7 @@ const Instructions = () => (
 )
 
 // ── Member View ───────────────────────────────────────────────────────────────
-const MemberView = ({ workspaceId, getToken }) => {
+const MemberView = ({ workspaceId }) => {
     const [submission, setSubmission] = useState(null)
     const [driveLink, setDriveLink] = useState('')
     const [note, setNote] = useState('')
@@ -191,10 +189,7 @@ const MemberView = ({ workspaceId, getToken }) => {
         setFetching(true)
         const load = async () => {
             try {
-                const token = await getToken()
-                const r = await axios.get(`${API}/api/submissions/me?workspaceId=${workspaceId}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                })
+                const r = await api.get(`/api/submissions/me?workspaceId=${workspaceId}`)
                 if (r.data.submission) {
                     setSubmission(r.data.submission)
                     setDriveLink(r.data.submission.driveLink)
@@ -216,11 +211,7 @@ const MemberView = ({ workspaceId, getToken }) => {
         try { new URL(link) } catch { setError("That doesn't look like a valid URL. Copy the full link from Google Drive."); return }
         setSaving(true)
         try {
-            const token = await getToken()
-            const r = await axios.post(`${API}/api/submissions`,
-                { workspaceId, driveLink: link, note: note.trim() },
-                { headers: { Authorization: `Bearer ${token}` } }
-            )
+            const r = await api.post(`/api/submissions`, { workspaceId, driveLink: link, note: note.trim() })
             setSubmission(r.data.submission)
             toast.success(submission ? 'Submission updated!' : 'Submission saved! ✅')
         } catch (err) {
@@ -234,10 +225,7 @@ const MemberView = ({ workspaceId, getToken }) => {
         if (!submission || !confirm('Remove your submission?')) return
         setDeleting(true)
         try {
-            const token = await getToken()
-            await axios.delete(`${API}/api/submissions/${submission.id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            })
+            await api.delete(`/api/submissions/${submission.id}`)
             setSubmission(null); setDriveLink(''); setNote('')
             toast.success('Submission removed')
         } catch (err) {
@@ -350,7 +338,7 @@ const MemberView = ({ workspaceId, getToken }) => {
 }
 
 // ── Admin Row ─────────────────────────────────────────────────────────────────
-const AdminRow = ({ member, getToken, onNoteUpdated }) => {
+const AdminRow = ({ member, onNoteUpdated }) => {
     const [expanded, setExpanded] = useState(false)
     const [editingNote, setEditingNote] = useState(false)
     const [noteInput, setNoteInput] = useState(member.submission?.adminNote || '')
@@ -360,11 +348,7 @@ const AdminRow = ({ member, getToken, onNoteUpdated }) => {
         if (!member.submission) return
         setSavingNote(true)
         try {
-            const token = await getToken()
-            const r = await axios.put(`${API}/api/submissions/${member.submission.id}/note`,
-                { adminNote: noteInput },
-                { headers: { Authorization: `Bearer ${token}` } }
-            )
+            const r = await api.put(`/api/submissions/${member.submission.id}/note`, { adminNote: noteInput })
             onNoteUpdated(member.userId, r.data.submission)
             setEditingNote(false)
             toast.success('Note saved')
@@ -489,7 +473,7 @@ const AdminRow = ({ member, getToken, onNoteUpdated }) => {
 }
 
 // ── Admin View ────────────────────────────────────────────────────────────────
-const AdminView = ({ workspaceId, getToken }) => {
+const AdminView = ({ workspaceId }) => {
     const [members, setMembers] = useState([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
@@ -502,10 +486,7 @@ const AdminView = ({ workspaceId, getToken }) => {
         setLoading(true)
         const fetch = async () => {
             try {
-                const token = await getToken()
-                const r = await axios.get(`${API}/api/submissions?workspaceId=${workspaceId}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                })
+                const r = await api.get(`/api/submissions?workspaceId=${workspaceId}`)
                 setMembers(r.data.members)
                 setTotal(r.data.total)
                 setSubmittedCount(r.data.submittedCount)
@@ -600,7 +581,7 @@ const AdminView = ({ workspaceId, getToken }) => {
             ) : (
                 <div className="space-y-3">
                     {filtered.map(m => (
-                        <AdminRow key={m.userId} member={m} getToken={getToken} onNoteUpdated={handleNoteUpdated} />
+                        <AdminRow key={m.userId} member={m} onNoteUpdated={handleNoteUpdated} />
                     ))}
                 </div>
             )}
@@ -610,7 +591,7 @@ const AdminView = ({ workspaceId, getToken }) => {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 const Submission = () => {
-    const { getToken, user } = useAuth()
+    const { user } = useAuth()
     const workspace = useSelector(state => state.workspace.workspace)
     const workspaceId = workspace?.id
     const isAdmin = user?.role === 'ADMIN'
@@ -632,8 +613,8 @@ const Submission = () => {
             </div>
 
             {isAdmin
-                ? <AdminView workspaceId={workspaceId} getToken={getToken} />
-                : <MemberView workspaceId={workspaceId} getToken={getToken} />}
+                ? <AdminView workspaceId={workspaceId} />
+                : <MemberView workspaceId={workspaceId} />}
         </div>
     )
 }

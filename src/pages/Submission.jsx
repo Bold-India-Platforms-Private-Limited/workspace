@@ -592,8 +592,7 @@ const AdminView = ({ workspaceId }) => {
 // ── Page ──────────────────────────────────────────────────────────────────────
 const Submission = () => {
     const { user } = useAuth()
-    const workspace = useSelector(state => state.workspace.workspace)
-    const workspaceId = workspace?.id
+    const workspaceId = useSelector(state => state.workspace?.currentWorkspace?.id)
     const isAdmin = user?.role === 'ADMIN'
 
     return (

@@ -7,6 +7,57 @@ import toast from "react-hot-toast";
 import api from "../configs/api";
 import QuillEditor from "./QuillEditor";
 
+// ── Shared sub-components ─────────────────────────────────────────────────────
+function DescriptionTypeToggle({ isHtml, onChange }) {
+    return (
+        <div className="inline-flex items-center rounded-lg border border-zinc-300 dark:border-zinc-700 overflow-hidden text-xs font-semibold">
+            <button type="button" onClick={() => onChange("text")}
+                className={`px-3 py-1.5 transition-colors ${!isHtml ? "bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900" : "bg-white dark:bg-zinc-900 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}>
+                Text
+            </button>
+            <button type="button" onClick={() => onChange("html")}
+                className={`px-3 py-1.5 transition-colors ${isHtml ? "bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900" : "bg-white dark:bg-zinc-900 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}>
+                HTML
+            </button>
+        </div>
+    );
+}
+
+function HtmlDescriptionEditor({ formData, setFormData, htmlPreview, setHtmlPreview }) {
+    return (
+        <div className="space-y-2">
+            {/* Code / Preview tab strip */}
+            <div className="flex gap-1">
+                {["Code", "Preview"].map(tab => (
+                    <button key={tab} type="button"
+                        onClick={() => setHtmlPreview(tab === "Preview")}
+                        className={`text-xs px-3 py-1 rounded font-medium transition-colors ${(tab === "Preview") === htmlPreview ? "bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"}`}>
+                        {tab}
+                    </button>
+                ))}
+            </div>
+            {!htmlPreview
+                ? <textarea
+                    value={formData.description}
+                    onChange={e => setFormData(f => ({ ...f, description: e.target.value }))}
+                    placeholder={"<!DOCTYPE html>\n<html>\n<body>\n  <h1>Project Overview</h1>\n</body>\n</html>"}
+                    rows={14}
+                    spellCheck={false}
+                    className="w-full rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-950 text-green-400 font-mono text-xs px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  />
+                : <iframe
+                    srcDoc={formData.description}
+                    title="HTML Preview"
+                    sandbox="allow-scripts"
+                    className="w-full border border-zinc-300 dark:border-zinc-700 rounded bg-white"
+                    style={{ height: 320 }}
+                  />
+            }
+            <p className="text-xs text-zinc-400">Full HTML page supported — users will see it rendered in a scrollable viewer.</p>
+        </div>
+    );
+}
+
 const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
 
     const dispatch = useDispatch();
@@ -16,6 +67,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
     const [formData, setFormData] = useState({
         name: "",
         description: "",
+        descriptionType: "text",
         status: "PLANNING",
         priority: "MEDIUM",
         start_date: "",
@@ -23,6 +75,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
         groupIds: [],
         progress: 0,
     });
+    const [htmlPreview, setHtmlPreview] = useState(false);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [groupQuery, setGroupQuery] = useState("");
@@ -125,6 +178,8 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
         "formula",
     ];
 
+    const isHtml = formData.descriptionType === "html";
+
     if (!isDialogOpen) return null;
 
     return (
@@ -153,13 +208,18 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                             </div>
 
                             {!isDesktop && (
-                                <><label className="block text-sm mb-2">Description</label><div className="rounded border border-zinc-300 dark:border-zinc-700 overflow-hidden">
-                                    <QuillEditor
-                                        value={formData.description}
-                                        onChange={(html) => setFormData({ ...formData, description: html })}
-                                        modules={quillModules}
-                                        formats={quillFormats} />
-                                </div></>
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-sm">Description</label>
+                                        <DescriptionTypeToggle isHtml={isHtml} onChange={(t) => { setFormData(f => ({ ...f, descriptionType: t, description: "" })); setHtmlPreview(false); }} />
+                                    </div>
+                                    {isHtml
+                                        ? <HtmlDescriptionEditor formData={formData} setFormData={setFormData} htmlPreview={htmlPreview} setHtmlPreview={setHtmlPreview} />
+                                        : <div className="rounded border border-zinc-300 dark:border-zinc-700 overflow-hidden">
+                                            <QuillEditor value={formData.description} onChange={(html) => setFormData(f => ({ ...f, description: html }))} modules={quillModules} formats={quillFormats} />
+                                          </div>
+                                    }
+                                </div>
                             )}
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -251,15 +311,16 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
 
                         {isDesktop && (
                             <div className="h-full border-t lg:border-t-0 lg:border-l border-zinc-200 dark:border-zinc-800 p-6 overflow-y-auto">
-                                <label className="block text-sm mb-2">Description</label>
-                                <div className="rounded border border-zinc-300 dark:border-zinc-700 overflow-hidden">
-                                    <QuillEditor
-                                        value={formData.description}
-                                        onChange={(html) => setFormData({ ...formData, description: html })}
-                                        modules={quillModules}
-                                        formats={quillFormats}
-                                    />
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-sm">Description</label>
+                                    <DescriptionTypeToggle isHtml={isHtml} onChange={(t) => { setFormData(f => ({ ...f, descriptionType: t, description: "" })); setHtmlPreview(false); }} />
                                 </div>
+                                {isHtml
+                                    ? <HtmlDescriptionEditor formData={formData} setFormData={setFormData} htmlPreview={htmlPreview} setHtmlPreview={setHtmlPreview} />
+                                    : <div className="rounded border border-zinc-300 dark:border-zinc-700 overflow-hidden">
+                                        <QuillEditor value={formData.description} onChange={(html) => setFormData(f => ({ ...f, description: html }))} modules={quillModules} formats={quillFormats} />
+                                      </div>
+                                }
                             </div>
                         )}
                     </div>

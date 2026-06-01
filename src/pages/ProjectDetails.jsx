@@ -1,12 +1,13 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeftIcon, PlusIcon, SettingsIcon, BarChart3Icon, CalendarIcon, FileStackIcon, ZapIcon, FileIcon } from "lucide-react";
+import { ArrowLeftIcon, PlusIcon, SettingsIcon, BarChart3Icon, CalendarIcon, FileStackIcon, ZapIcon, FileIcon, FolderOpenIcon, Maximize2, X } from "lucide-react";
 import ProjectAnalytics from "../components/ProjectAnalytics";
 import ProjectSettings from "../components/ProjectSettings";
 import CreateTaskDialog from "../components/CreateTaskDialog";
 import ProjectCalendar from "../components/ProjectCalendar";
 import ProjectTasks from "../components/ProjectTasks";
+import ProjectDocuments from "../components/ProjectDocuments";
 import { useAuth } from "../auth/AuthContext";
 import DOMPurify from "dompurify";
 
@@ -24,6 +25,7 @@ export default function ProjectDetail() {
     const [tasks, setTasks] = useState([]);
     const [showCreateTask, setShowCreateTask] = useState(false);
     const [activeTab, setActiveTab] = useState(tab || "tasks");
+    const [htmlModalOpen, setHtmlModalOpen] = useState(false);
     const { user } = useAuth();
     const userGroupIds = useMemo(() => {
         if (!user?.id || !currentWorkspace) return new Set();
@@ -147,10 +149,11 @@ export default function ProjectDetail() {
             <div>
                 <div className="inline-flex flex-wrap max-sm:grid grid-cols-3 gap-2 border border-zinc-200 dark:border-zinc-800 rounded overflow-hidden">
                     {[
-                        { key: "tasks", label: "Tasks", icon: FileStackIcon },
-                        { key: "description", label: "Description", icon: FileIcon },
-                        { key: "calendar", label: "Calendar", icon: CalendarIcon },
-                        { key: "analytics", label: "Analytics", icon: BarChart3Icon },
+                        { key: "tasks",       label: "Tasks",       icon: FileStackIcon   },
+                        { key: "documents",   label: "Documents",   icon: FolderOpenIcon  },
+                        { key: "description", label: "Description", icon: FileIcon        },
+                        { key: "calendar",    label: "Calendar",    icon: CalendarIcon    },
+                        { key: "analytics",   label: "Analytics",   icon: BarChart3Icon   },
                         ...(user?.role === "ADMIN" ? [{ key: "settings", label: "Settings", icon: SettingsIcon }] : []),
                     ].map((tabItem) => (
                         <button
@@ -177,22 +180,108 @@ export default function ProjectDetail() {
                         </div>
                     )}
                     {activeTab === "description" && (
-                        <div className="dark:bg-zinc-900/40 rounded max-w-6xl p-4 sm:p-6 border border-zinc-200 dark:border-zinc-800">
-                            {(() => {
-                                const raw = project?.description || "";
-                                const hasHtml = /<\s*\/?[a-z][\s\S]*>/i.test(raw);
-                                const safeHtml = DOMPurify.sanitize(hasHtml ? raw : raw.replace(/\n/g, "<br />"), {
-                                    ALLOWED_TAGS: ["p", "b", "i", "u", "strong", "em", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "blockquote", "code", "pre", "span", "div", "br"],
-                                    ALLOWED_ATTR: ["style", "class", "align"],
-                                    ALLOW_STYLE: true,
-                                });
-                                return (
+                        <div>
+                            {/* ── Single trigger card ── */}
+                            {!project?.description ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-center">
+                                    <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
+                                        <FileIcon size={22} className="text-zinc-400" />
+                                    </div>
+                                    <p className="text-sm text-zinc-500 dark:text-zinc-400">No description added yet.</p>
+                                    {user?.role === "ADMIN" && (
+                                        <p className="text-xs text-zinc-400 mt-1">Go to <span className="font-semibold">Settings</span> to add one.</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-14 text-center gap-4">
+                                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center">
+                                        <FileIcon size={26} className="text-blue-500 dark:text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-zinc-700 dark:text-zinc-200 text-base">{project.name}</p>
+                                        <p className="text-xs text-zinc-400 mt-0.5">
+                                            {project.descriptionType === "html" ? "HTML page description" : "Rich text description"}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => setHtmlModalOpen(true)}
+                                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold shadow-md shadow-blue-200 dark:shadow-none transition"
+                                    >
+                                        <Maximize2 size={15} />
+                                        View project description
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* ── Full-screen modal — works for both HTML and text ── */}
+                            {htmlModalOpen && project?.description && (
+                                <div
+                                    className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5"
+                                    onClick={() => setHtmlModalOpen(false)}
+                                >
                                     <div
-                                        className="description-content text-sm sm:text-base text-zinc-700 dark:text-white leading-relaxed break-words"
-                                        dangerouslySetInnerHTML={{ __html: safeHtml }}
-                                    />
-                                );
-                            })()}
+                                        className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden"
+                                        style={{ maxWidth: 1100, height: "92vh" }}
+                                        onClick={e => e.stopPropagation()}
+                                    >
+                                        {/* Modal header */}
+                                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                                                    <FileIcon size={13} className="text-blue-600 dark:text-blue-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-zinc-800 dark:text-zinc-100 text-sm leading-tight">{project.name}</p>
+                                                    <p className="text-[11px] text-zinc-400">Project Description</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setHtmlModalOpen(false)}
+                                                className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+
+                                        {/* Modal body */}
+                                        <div className="flex-1 overflow-hidden">
+                                            {project.descriptionType === "html" ? (
+                                                /* HTML — sandboxed iframe */
+                                                <iframe
+                                                    srcDoc={project.description}
+                                                    title="Project Description"
+                                                    sandbox="allow-scripts"
+                                                    className="w-full h-full border-0"
+                                                />
+                                            ) : (
+                                                /* Rich text — DOMPurify rendered, scrollable */
+                                                <div className="w-full h-full overflow-y-auto px-8 py-6">
+                                                    <div
+                                                        className="description-content prose prose-zinc dark:prose-invert max-w-3xl mx-auto text-sm sm:text-base text-zinc-700 dark:text-zinc-200 leading-relaxed break-words"
+                                                        dangerouslySetInnerHTML={{
+                                                            __html: DOMPurify.sanitize(
+                                                                /<\s*\/?[a-z][\s\S]*>/i.test(project.description)
+                                                                    ? project.description
+                                                                    : project.description.replace(/\n/g, "<br />"),
+                                                                {
+                                                                    ALLOWED_TAGS: ["p","b","i","u","strong","em","h1","h2","h3","h4","h5","h6","ul","ol","li","blockquote","code","pre","span","div","br","a","img"],
+                                                                    ALLOWED_ATTR: ["style","class","align","href","src","alt"],
+                                                                    ALLOW_STYLE: true,
+                                                                }
+                                                            )
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    {activeTab === "documents" && (
+                        <div className="dark:bg-zinc-900/40 rounded max-w-6xl">
+                            <ProjectDocuments projectId={id} />
                         </div>
                     )}
                     {activeTab === "analytics" && (

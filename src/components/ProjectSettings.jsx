@@ -10,6 +10,7 @@ import api from "../configs/api";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import RichTextInput from "./RichTextInput";
+import QuillEditor from "./QuillEditor";
 
 export default function ProjectSettings({ project }) {
     
@@ -19,18 +20,19 @@ export default function ProjectSettings({ project }) {
     const currentWorkspace = useSelector((state) => state.workspace?.currentWorkspace || null);
 
     const [formData, setFormData] = useState({
-        name: "New Website Launch",
-        description: "Initial launch for new web platform.",
+        name: "",
+        description: "",
+        descriptionType: "text",
         status: "PLANNING",
         priority: "MEDIUM",
-        start_date: "2025-09-10",
-        end_date: "2025-10-15",
-        progress: 30,
+        start_date: "",
+        end_date: "",
+        progress: 0,
         groupIds: [],
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [showFullDescription, setShowFullDescription] = useState(false);
+    const [htmlPreview, setHtmlPreview] = useState(false);
     const [groupQuery, setGroupQuery] = useState("");
 
     const allGroups = currentWorkspace?.groups || [];
@@ -65,11 +67,7 @@ export default function ProjectSettings({ project }) {
         });
     }, [filteredGroups, formData.groupIds]);
 
-    const descriptionHtml = useMemo(() => {
-        if (!formData.description) return "";
-        const hasHtmlTags = /<\/?[a-z][\s\S]*>/i.test(formData.description);
-        return hasHtmlTags ? formData.description : formData.description.replace(/\n/g, "<br />");
-    }, [formData.description]);
+    const isHtml = formData.descriptionType === "html";
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -92,8 +90,10 @@ export default function ProjectSettings({ project }) {
         if (project) {
             setFormData({
                 ...project,
+                descriptionType: project.descriptionType || "text",
                 groupIds: project.groups?.map((g) => g.groupId || g.group?.id) || [],
             });
+            setHtmlPreview(false);
         }
     }, [project]);
 
@@ -134,20 +134,67 @@ export default function ProjectSettings({ project }) {
 
                     {/* Description */}
                     <div className="space-y-2">
-                        <label className={labelClasses}>Description</label>
-                        {formData.description && (
-                            <div className="description-content text-sm text-zinc-600 dark:text-white">
-                                <div
-                                    className={`${showFullDescription ? "" : "line-clamp-3"} whitespace-pre-wrap`}
-                                    dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+                        <div className="flex items-center justify-between">
+                            <label className={labelClasses}>Description</label>
+                            {/* Text / HTML toggle */}
+                            <div className="inline-flex items-center rounded-lg border border-zinc-300 dark:border-zinc-700 overflow-hidden text-xs font-semibold">
+                                {["text", "html"].map(t => (
+                                    <button key={t} type="button"
+                                        onClick={() => { setFormData(f => ({ ...f, descriptionType: t, description: "" })); setHtmlPreview(false); }}
+                                        className={`px-3 py-1.5 capitalize transition-colors ${formData.descriptionType === t ? "bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900" : "bg-white dark:bg-zinc-900 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}>
+                                        {t}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {isHtml ? (
+                            <div className="space-y-2">
+                                <div className="flex gap-1">
+                                    {["Code", "Preview"].map(tab => (
+                                        <button key={tab} type="button"
+                                            onClick={() => setHtmlPreview(tab === "Preview")}
+                                            className={`text-xs px-3 py-1 rounded font-medium transition-colors ${(tab === "Preview") === htmlPreview ? "bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"}`}>
+                                            {tab}
+                                        </button>
+                                    ))}
+                                </div>
+                                {!htmlPreview
+                                    ? <textarea
+                                        value={formData.description}
+                                        onChange={e => setFormData(f => ({ ...f, description: e.target.value }))}
+                                        placeholder={"<!DOCTYPE html>\n<html>\n<body>\n  <h1>Project Overview</h1>\n</body>\n</html>"}
+                                        rows={12}
+                                        spellCheck={false}
+                                        className="w-full rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-950 text-green-400 font-mono text-xs px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                                      />
+                                    : <iframe
+                                        srcDoc={formData.description}
+                                        title="HTML Preview"
+                                        sandbox="allow-scripts"
+                                        className="w-full border border-zinc-300 dark:border-zinc-700 rounded bg-white"
+                                        style={{ height: 280 }}
+                                      />
+                                }
+                                <p className="text-xs text-zinc-400">Full HTML page — users will see it in a scrollable iframe viewer.</p>
+                            </div>
+                        ) : (
+                            <div className="rounded border border-zinc-300 dark:border-zinc-700 overflow-hidden">
+                                <QuillEditor
+                                    value={formData.description}
+                                    onChange={(html) => setFormData(f => ({ ...f, description: html }))}
+                                    modules={{
+                                        toolbar: [
+                                            ["bold", "italic", "underline", "strike"],
+                                            [{ header: [1, 2, 3, false] }],
+                                            [{ list: "ordered" }, { list: "bullet" }],
+                                            ["blockquote", "code-block"],
+                                            [{ color: [] }, { background: [] }],
+                                            ["link"], ["clean"],
+                                        ],
+                                    }}
+                                    formats={["bold","italic","underline","strike","header","list","bullet","blockquote","code-block","color","background","link"]}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowFullDescription((prev) => !prev)}
-                                    className="mt-1 text-xs text-blue-600 dark:text-blue-400"
-                                >
-                                    {showFullDescription ? "Show less" : "...more"}
-                                </button>
                             </div>
                         )}
                     </div>

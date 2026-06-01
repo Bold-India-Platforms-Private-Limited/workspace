@@ -1,5 +1,14 @@
 import { Link } from "react-router-dom";
 
+// Strip all HTML/Quill tags → safe plain text for card preview
+const stripToPlainText = (html = "", maxLen = 120) => {
+    if (!html) return "No description";
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    const text = (tmp.textContent || tmp.innerText || "").replace(/\s+/g, " ").trim();
+    return text.length > maxLen ? text.slice(0, maxLen) + "…" : text || "No description";
+};
+
 const statusColors = {
     PLANNING: "bg-gray-200 dark:bg-zinc-600 text-gray-900 dark:text-zinc-200",
     ACTIVE: "bg-emerald-200 dark:bg-emerald-500 text-emerald-900 dark:text-emerald-900",
@@ -17,10 +26,9 @@ const ProjectCard = ({ project }) => {
                     <h3 className="font-semibold text-gray-900 dark:text-zinc-200 mb-1 truncate group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
                         {project.name}
                     </h3>
-                    <div
-                        className="description-content text-gray-500 dark:text-white text-sm line-clamp-2 mb-3"
-                        dangerouslySetInnerHTML={{ __html: project.description || "No description" }}
-                    />
+                    <p className="text-gray-500 dark:text-zinc-400 text-sm line-clamp-2 mb-3">
+                        {stripToPlainText(project.description)}
+                    </p>
                 </div>
             </div>
 

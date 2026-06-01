@@ -7,6 +7,15 @@ import { useSelector } from "react-redux";
 import CreateProjectDialog from "./CreateProjectDialog";
 import { useAuth } from "../auth/AuthContext";
 
+// Strip all HTML/Quill tags → plain text snippet safe for card preview
+const stripToPlainText = (html = "", maxLen = 120) => {
+    if (!html) return "No description";
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    const text = (tmp.textContent || tmp.innerText || "").replace(/\s+/g, " ").trim();
+    return text.length > maxLen ? text.slice(0, maxLen) + "…" : text || "No description";
+};
+
 const ProjectOverview = () => {
     const statusColors = {
         PLANNING: "bg-zinc-200 text-zinc-800 dark:bg-zinc-600 dark:text-zinc-200",
@@ -104,8 +113,8 @@ const ProjectOverview = () => {
                                         <h3 className="font-semibold text-zinc-800 dark:text-zinc-300 mb-1">
                                             {project.name}
                                         </h3>
-                                        <p className="description-content text-sm text-zinc-600 dark:text-white line-clamp-2">
-                                            <span dangerouslySetInnerHTML={{ __html: project.description || 'No description' }} />
+                                        <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2">
+                                            {stripToPlainText(project.description)}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2 ml-4">

@@ -11,11 +11,15 @@ import { Link } from "react-router-dom";
 
 const API = import.meta.env.VITE_BASEURL;
 
-// localStorage key — one per user per workspace
+// localStorage key — signed permanently (per user per workspace)
 export const ndaCacheKey = (userId, workspaceId) =>
     `nda_signed_${userId}_${workspaceId}`;
 
-export default function NdaModal({ onSigned }) {
+// sessionStorage key — dismissed just for this browser session
+export const ndaDismissKey = (userId, workspaceId) =>
+    `nda_dismissed_${userId}_${workspaceId}`;
+
+export default function NdaModal({ onSigned, onDismiss }) {
     const { user, getToken } = useAuth();
     const workspace    = useSelector(s => s.workspace?.currentWorkspace);
     const companyName  = workspace?.name || "the Company";
@@ -29,7 +33,15 @@ export default function NdaModal({ onSigned }) {
     const handleScroll = () => {
         const el = scrollRef.current;
         if (!el) return;
-        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 30) setScrolled(true);
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 20) setScrolled(true);
+    };
+
+    // Close without signing — remember dismissal for this session only
+    const handleClose = () => {
+        if (user?.id && workspaceId) {
+            sessionStorage.setItem(ndaDismissKey(user.id, workspaceId), "true");
+        }
+        onDismiss?.();
     };
 
     const handleSign = async () => {
@@ -60,31 +72,42 @@ export default function NdaModal({ onSigned }) {
 
     return (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+            {/* Modal — explicit height so flex-1 scroll container is bounded */}
             <div
-                className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden"
-                style={{ maxWidth: 640, maxHeight: "92vh" }}
+                className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full flex flex-col"
+                style={{ maxWidth: 640, height: "min(92vh, 680px)" }}
             >
                 {/* ── Header ── */}
-                <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm">
-                        <ScrollText className="w-5 h-5 text-white" />
+                <div className="flex items-center gap-3 px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm shrink-0">
+                        <ScrollText className="w-4 h-4 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h2 className="font-bold text-zinc-800 dark:text-zinc-100 text-base leading-tight">
+                        <h2 className="font-bold text-zinc-800 dark:text-zinc-100 text-sm leading-tight">
                             Internship Agreement &amp; NDA
                         </h2>
-                        <p className="text-xs text-zinc-400 mt-0.5">
-                            Please read and sign before accessing the platform — <span className="font-medium text-zinc-500">{companyName}</span>
+                        <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
+                            Sign before accessing — <span className="font-medium text-zinc-500">{companyName}</span>
                         </p>
                     </div>
-                    <Link
-                        to="/terms-nda"
-                        target="_blank"
-                        className="p-1.5 rounded-lg text-zinc-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition shrink-0"
-                        title="View full NDA page"
-                    >
-                        <ExternalLink className="w-4 h-4" />
-                    </Link>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <Link
+                            to="/terms-nda"
+                            target="_blank"
+                            className="p-1.5 rounded-lg text-zinc-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"
+                            title="View full NDA page"
+                        >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                        </Link>
+                        {/* Close — dismisses for this session, will re-appear next visit */}
+                        <button
+                            onClick={handleClose}
+                            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                            title="Remind me later"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Scrollable body ── */}

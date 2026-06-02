@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchWorkspaces, resetState } from '../features/workspaceSlice'
 import { loadTheme } from '../features/themeSlice'
@@ -10,7 +10,7 @@ import { toast } from 'react-hot-toast'
 import CreateWorkspaceDialog from '../components/CreateWorkspaceDialog'
 import NoticesBanner from '../components/NoticesBanner'
 import MobileModal from '../components/MobileModal'
-import NdaModal, { ndaCacheKey } from '../components/NdaModal'
+import NdaModal, { ndaCacheKey, ndaDismissKey } from '../components/NdaModal'
 import CaptchaWidget from '../components/CaptchaWidget'
 
 const SkeletonPulse = ({ className = "" }) => (
@@ -118,6 +118,7 @@ const Layout = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const { user, login, getToken, isAuthenticated, logout } = useAuth()
     const navigate = useNavigate()
+    const { pathname } = useLocation()
     const { workspaces, loading, fetchError } = useSelector((state) => state.workspace)
     const dispatch = useDispatch()
     const [formData, setFormData] = useState({ email: "", password: "" })
@@ -173,11 +174,15 @@ const Layout = () => {
         // Skip admin — NDA is for interns only
         if (user.role === 'ADMIN') return
 
-        // If localStorage already says signed — done, never show
-        const cacheKey = ndaCacheKey(user.id, currentWorkspaceId)
+        // 1. Already signed permanently — never show
+        const cacheKey   = ndaCacheKey(user.id, currentWorkspaceId)
         if (localStorage.getItem(cacheKey) === 'true') return
 
-        // One API call to confirm
+        // 2. Dismissed this session — don't show until next session
+        const dismissKey = ndaDismissKey(user.id, currentWorkspaceId)
+        if (sessionStorage.getItem(dismissKey) === 'true') return
+
+        // 3. One API call to check server-side status
         let cancelled = false
         getToken().then(async (token) => {
             try {
@@ -188,8 +193,7 @@ const Layout = () => {
                 if (!res.ok || cancelled) return
                 const data = await res.json()
                 if (data.signed) {
-                    // Already signed on server — cache it so we never ask again
-                    localStorage.setItem(cacheKey, 'true')
+                    localStorage.setItem(cacheKey, 'true')  // cache — never ask again
                 } else {
                     setShowNdaModal(true)
                 }
@@ -676,7 +680,12 @@ const Layout = () => {
     return (
         <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
             {showMobileModal && <MobileModal onSaved={() => setShowMobileModal(false)} />}
-            {showNdaModal   && <NdaModal    onSigned={() => setShowNdaModal(false)} />}
+            {showNdaModal && pathname === '/' && (
+                <NdaModal
+                    onSigned={() => setShowNdaModal(false)}
+                    onDismiss={() => setShowNdaModal(false)}
+                />
+            )}
             <Sidebar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
             <div className="flex-1 flex flex-col h-screen">
                 <Navbar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />

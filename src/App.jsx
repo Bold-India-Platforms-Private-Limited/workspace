@@ -18,6 +18,8 @@ const Standup = lazy(() => import('./pages/Standup'))
 const Leave = lazy(() => import('./pages/Leave'))
 const Submission = lazy(() => import('./pages/Submission'))
 const AttendanceImageManager = lazy(() => import('./pages/AttendanceImageManager'))
+const TermsNDA = lazy(() => import('./pages/TermsNDA'))
+const TermsConditions = lazy(() => import('./pages/TermsConditions'))
 
 const PageFallback = () => (
     <div className="max-w-6xl mx-auto space-y-6 animate-pulse">
@@ -51,6 +53,8 @@ const App = () => {
                     <Route path='leave' element={<Suspense fallback={<PageFallback />}><Leave /></Suspense>} />
                     <Route path='submission' element={<Suspense fallback={<PageFallback />}><Submission /></Suspense>} />
                     <Route path='attendance-images' element={<Suspense fallback={<PageFallback />}><AttendanceImageManager /></Suspense>} />
+                    <Route path='terms-nda' element={<Suspense fallback={<PageFallback />}><TermsNDA /></Suspense>} />
+                    <Route path='terms' element={<Suspense fallback={<PageFallback />}><TermsConditions /></Suspense>} />
                 </Route>
             </Routes>
         </>

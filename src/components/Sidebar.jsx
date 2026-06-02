@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import WorkspaceDropdown from './WorkspaceDropdown'
-import { FolderOpenIcon, LayoutDashboardIcon, MoonIcon, SettingsIcon, SunIcon, UsersIcon, CalendarIcon, Mail, ClipboardList, CalendarDays, FolderUp, ImageIcon } from 'lucide-react'
+import { FolderOpenIcon, LayoutDashboardIcon, MoonIcon, SettingsIcon, SunIcon, UsersIcon, CalendarIcon, Mail, ClipboardList, CalendarDays, FolderUp, ImageIcon, ScrollText, FileText } from 'lucide-react'
 import MyTasksSidebar from './MyTasksSidebar'
 import ProjectSidebar from './ProjectsSidebar'
 import { NavLink } from 'react-router-dom'
@@ -21,6 +21,8 @@ const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
         { name: 'Submission', href: '/submission', icon: FolderUp },
         ...(user?.role === 'ADMIN' ? [{ name: 'Email Monitor', href: '/email-monitor', icon: Mail }] : []),
         ...(user?.role === 'ADMIN' ? [{ name: 'Image Manager', href: '/attendance-images', icon: ImageIcon }] : []),
+        { name: 'Terms & Conditions', href: '/terms', icon: FileText },
+        { name: 'NDA Agreement', href: '/terms-nda', icon: ScrollText },
     ]
 
     const sidebarRef = useRef(null);

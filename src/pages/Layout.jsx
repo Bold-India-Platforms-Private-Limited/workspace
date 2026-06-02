@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast'
 import CreateWorkspaceDialog from '../components/CreateWorkspaceDialog'
 import NoticesBanner from '../components/NoticesBanner'
 import MobileModal from '../components/MobileModal'
+import NdaModal, { ndaCacheKey } from '../components/NdaModal'
 import CaptchaWidget from '../components/CaptchaWidget'
 
 const SkeletonPulse = ({ className = "" }) => (
@@ -123,6 +124,7 @@ const Layout = () => {
     const [isLoggingIn, setIsLoggingIn] = useState(false)
     const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false)
     const [showMobileModal, setShowMobileModal] = useState(false)
+    const [showNdaModal,    setShowNdaModal]    = useState(false)
     const [showForgot, setShowForgot] = useState(false)
     const [forgotEmail, setForgotEmail] = useState("")
     const [forgotState, setForgotState] = useState("idle") // idle | loading | success | error
@@ -162,6 +164,39 @@ const Layout = () => {
         })
         return () => { cancelled = true }
     }, [isAuthenticated, user])
+
+    // Check NDA status — localStorage-first: zero API cost if already signed
+    // Runs once when both user and workspaceId are available
+    const currentWorkspaceId = useSelector((state) => state.workspace?.currentWorkspace?.id)
+    useEffect(() => {
+        if (!isAuthenticated || !user || !currentWorkspaceId) return
+        // Skip admin — NDA is for interns only
+        if (user.role === 'ADMIN') return
+
+        // If localStorage already says signed — done, never show
+        const cacheKey = ndaCacheKey(user.id, currentWorkspaceId)
+        if (localStorage.getItem(cacheKey) === 'true') return
+
+        // One API call to confirm
+        let cancelled = false
+        getToken().then(async (token) => {
+            try {
+                const res = await fetch(
+                    `${import.meta.env.VITE_BASEURL}/api/nda/status?workspaceId=${currentWorkspaceId}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                )
+                if (!res.ok || cancelled) return
+                const data = await res.json()
+                if (data.signed) {
+                    // Already signed on server — cache it so we never ask again
+                    localStorage.setItem(cacheKey, 'true')
+                } else {
+                    setShowNdaModal(true)
+                }
+            } catch { /* silently ignore network errors */ }
+        })
+        return () => { cancelled = true }
+    }, [isAuthenticated, user, currentWorkspaceId])
 
     // Auto-retry when the user returns to the tab after a backend hiccup.
     // Only fires if there's nothing to show — avoids spamming the backend
@@ -641,6 +676,7 @@ const Layout = () => {
     return (
         <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
             {showMobileModal && <MobileModal onSaved={() => setShowMobileModal(false)} />}
+            {showNdaModal   && <NdaModal    onSigned={() => setShowNdaModal(false)} />}
             <Sidebar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
             <div className="flex-1 flex flex-col h-screen">
                 <Navbar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />

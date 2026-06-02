@@ -463,85 +463,172 @@ const Attendance = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white dark:bg-zinc-950 dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
-                        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-sm font-medium">Attendance Records</span>
-                            <div className="flex items-center gap-3 text-xs">
-                                <span className="px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">
-                                    Marked: {adminRecords.filter((r) => r.attendance).length}
-                                </span>
-                                <span className="px-2 py-1 rounded bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
-                                    Missing: {adminRecords.filter((r) => !r.attendance).length}
-                                </span>
-                                <span className="px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
-                                    Total: {adminRecords.length}
-                                </span>
+                    {/* ── Stat cards ─────────────────────────────────────────────────────── */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                            { label: "Total",   value: adminRecords.length,                              color: "from-zinc-500 to-zinc-600",    bg: "bg-zinc-50 dark:bg-zinc-900",       text: "text-zinc-700 dark:text-zinc-200" },
+                            { label: "Present", value: adminRecords.filter(r => r.attendance).length,    color: "from-emerald-500 to-teal-500",  bg: "bg-emerald-50 dark:bg-emerald-950", text: "text-emerald-700 dark:text-emerald-300" },
+                            { label: "Absent",  value: adminRecords.filter(r => !r.attendance).length,   color: "from-red-500 to-rose-500",      bg: "bg-red-50 dark:bg-red-950",         text: "text-red-700 dark:text-red-300" },
+                            { label: "Rate",    value: adminRecords.length ? `${Math.round(adminRecords.filter(r => r.attendance).length / adminRecords.length * 100)}%` : "—", color: "from-blue-500 to-indigo-500", bg: "bg-blue-50 dark:bg-blue-950", text: "text-blue-700 dark:text-blue-300" },
+                        ].map(({ label, value, color, bg, text }) => (
+                            <div key={label} className={`${bg} border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex items-center gap-3`}>
+                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center shrink-0 shadow-sm`}>
+                                    <span className="text-white text-sm font-bold">{typeof value === "number" ? value : value}</span>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
+                                    <p className={`text-xl font-bold ${text}`}>{value}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* ── Gallery grid ───────────────────────────────────────────────────── */}
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+                        {/* Gallery header */}
+                        <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                                    Attendance — {selectedDate ? format(new Date(selectedDate), "MMMM dd, yyyy") : ""}
+                                </h3>
+                                <p className="text-xs text-zinc-400 mt-0.5">
+                                    {filteredAdminRecords.length} record{filteredAdminRecords.length !== 1 ? "s" : ""} shown
+                                </p>
+                            </div>
+                            {/* Filter pills */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                {[
+                                    { key: "all",     label: "All",     count: adminRecords.length },
+                                    { key: "marked",  label: "Present", count: adminRecords.filter(r => r.attendance).length },
+                                    { key: "missing", label: "Absent",  count: adminRecords.filter(r => !r.attendance).length },
+                                ].map(({ key, label, count }) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => { setStatusFilter(key); setAdminPage(1); }}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                                            statusFilter === key
+                                                ? "bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 border-transparent shadow-sm"
+                                                : "bg-white dark:bg-zinc-800 text-zinc-500 border-zinc-200 dark:border-zinc-700 hover:border-zinc-300"
+                                        }`}
+                                    >
+                                        {label}
+                                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${statusFilter === key ? "bg-white/20 dark:bg-black/20 text-inherit" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300"}`}>
+                                            {count}
+                                        </span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                        <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
+
+                        {/* Cards */}
+                        <div className="p-4">
                             {pagedAdminRecords.length === 0 ? (
-                                <div className="p-6 text-sm text-zinc-500">No records found.</div>
+                                <div className="flex flex-col items-center justify-center py-16 text-center">
+                                    <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
+                                        <ImageIcon className="w-7 h-7 text-zinc-400" />
+                                    </div>
+                                    <p className="text-sm text-zinc-500 dark:text-zinc-400">No records found</p>
+                                    <p className="text-xs text-zinc-400 mt-1">Try changing the filter or date</p>
+                                </div>
                             ) : (
-                                pagedAdminRecords.map((record, index) => (
-                                    <div key={record.user.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                                        <div className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 w-8 shrink-0">
-                                            {(adminPage - 1) * ADMIN_PAGE_SIZE + index + 1}.
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                                                {record.user.name || record.user.email}
-                                            </div>
-                                            <div className="text-xs text-zinc-500 dark:text-zinc-400">{record.user.email}</div>
-                                        </div>
-                                        <div className="text-xs">
-                                            {record.attendance ? (
-                                                <span className="px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Marked</span>
-                                            ) : (
-                                                <span className="px-2 py-1 rounded bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">Missing</span>
-                                            )}
-                                        </div>
-                                        <div className="w-full sm:w-40">
-                                            {record.attendance?.imageUrl ? (
-                                                <div className="cursor-pointer group">
-                                                    <img
-                                                        src={record.attendance.imageUrl}
-                                                        alt="attendance"
-                                                        className="w-full h-32 object-cover rounded border border-zinc-200 dark:border-zinc-800 group-hover:opacity-75 transition-opacity"
-                                                        onClick={() => setSelectedPhoto(record.attendance)}
-                                                    />
-                                                    {record.attendance.createdAt && (
-                                                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">
-                                                            {format(toIST(record.attendance.createdAt), "MMM dd, yyyy hh:mm a")}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                                    {pagedAdminRecords.map((record, index) => {
+                                        const has = Boolean(record.attendance);
+                                        const hasPhoto = Boolean(record.attendance?.imageUrl);
+                                        return (
+                                            <div
+                                                key={record.user.id}
+                                                onClick={() => hasPhoto && setSelectedPhoto(record.attendance)}
+                                                className={`group relative rounded-2xl overflow-hidden border transition-all duration-200 ${
+                                                    hasPhoto ? "cursor-pointer hover:shadow-lg hover:-translate-y-0.5" : ""
+                                                } ${has
+                                                    ? "border-emerald-200 dark:border-emerald-800/60"
+                                                    : "border-red-200 dark:border-red-900/50"
+                                                }`}
+                                            >
+                                                {/* Photo / Placeholder */}
+                                                <div className="relative aspect-[3/4] bg-zinc-100 dark:bg-zinc-800">
+                                                    {hasPhoto ? (
+                                                        <>
+                                                            <img
+                                                                src={record.attendance.imageUrl}
+                                                                alt={record.user.name}
+                                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                            />
+                                                            {/* Hover overlay */}
+                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-zinc-900/90 rounded-xl px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 shadow">
+                                                                    View photo
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                                                            {/* Avatar initials */}
+                                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold text-white ${has ? "bg-gradient-to-br from-emerald-400 to-teal-500" : "bg-gradient-to-br from-zinc-400 to-zinc-500"}`}>
+                                                                {(record.user.name || record.user.email)?.[0]?.toUpperCase()}
+                                                            </div>
+                                                            <p className="text-[10px] text-zinc-400 dark:text-zinc-500">No photo</p>
                                                         </div>
                                                     )}
+
+                                                    {/* Status badge — top right */}
+                                                    <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center shadow-md ${has ? "bg-emerald-500" : "bg-red-500"}`}>
+                                                        {has
+                                                            ? <CheckCircle2 className="w-3 h-3 text-white" />
+                                                            : <XCircle className="w-3 h-3 text-white" />
+                                                        }
+                                                    </div>
+
+                                                    {/* Rank badge — top left */}
+                                                    <div className="absolute top-2 left-2 w-5 h-5 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                                                        <span className="text-[9px] text-white font-bold">{(adminPage - 1) * ADMIN_PAGE_SIZE + index + 1}</span>
+                                                    </div>
                                                 </div>
-                                            ) : (
-                                                <div className="w-full h-32 flex items-center justify-center rounded border border-dashed border-zinc-300 dark:border-zinc-700 text-xs text-zinc-500">
-                                                    No photo
+
+                                                {/* Footer info */}
+                                                <div className={`px-2.5 py-2 ${has ? "bg-emerald-50 dark:bg-emerald-950/40" : "bg-red-50 dark:bg-red-950/30"}`}>
+                                                    <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-100 truncate leading-tight">
+                                                        {record.user.name || record.user.email?.split("@")[0]}
+                                                    </p>
+                                                    {record.attendance?.createdAt ? (
+                                                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 flex items-center gap-0.5 mt-0.5">
+                                                            <Clock className="w-2.5 h-2.5 shrink-0" />
+                                                            {format(toIST(record.attendance.createdAt), "hh:mm a")}
+                                                        </p>
+                                                    ) : (
+                                                        <p className={`text-[10px] font-medium mt-0.5 ${has ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+                                                            {has ? "Present" : "Absent"}
+                                                        </p>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             )}
                         </div>
+
+                        {/* Pagination */}
                         {adminTotalPages > 1 && (
-                            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2 text-sm">
-                                <button
-                                    disabled={adminPage === 1}
-                                    onClick={() => setAdminPage((p) => p - 1)}
-                                    className="px-3 py-1 rounded border disabled:opacity-50"
-                                >
-                                    Prev
-                                </button>
-                                <span>{adminPage} / {adminTotalPages}</span>
-                                <button
-                                    disabled={adminPage === adminTotalPages}
-                                    onClick={() => setAdminPage((p) => p + 1)}
-                                    className="px-3 py-1 rounded border disabled:opacity-50"
-                                >
-                                    Next
-                                </button>
+                            <div className="px-5 py-3.5 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-2 text-sm">
+                                <span className="text-xs text-zinc-400">Page {adminPage} of {adminTotalPages}</span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        disabled={adminPage === 1}
+                                        onClick={() => setAdminPage((p) => p - 1)}
+                                        className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium disabled:opacity-40 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+                                    >
+                                        ← Prev
+                                    </button>
+                                    <button
+                                        disabled={adminPage === adminTotalPages}
+                                        onClick={() => setAdminPage((p) => p + 1)}
+                                        className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium disabled:opacity-40 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+                                    >
+                                        Next →
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1055,37 +1142,52 @@ const Attendance = () => {
                 </div>
             )}
             
-            {/* Fullscreen Photo Modal */}
+            {/* ── Fullscreen Photo Modal ── */}
             {selectedPhoto && (
-                <div 
-                    className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+                <div
+                    className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
                     onClick={() => setSelectedPhoto(null)}
                 >
-                    <div 
-                        className="relative max-w-4xl max-h-[90vh] w-full h-full flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
+                    <div
+                        className="relative flex flex-col items-center gap-4 max-w-lg w-full"
+                        onClick={e => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+                        {/* Header */}
+                        <div className="w-full flex items-center justify-between">
                             <div>
                                 {selectedPhoto.createdAt && (
-                                    <div className="text-white text-sm">
-                                        {format(toIST(selectedPhoto.createdAt), "EEEE, MMMM dd, yyyy hh:mm:ss a")}
-                                    </div>
+                                    <>
+                                        <p className="text-white font-semibold text-sm">
+                                            {format(toIST(selectedPhoto.createdAt), "EEEE, MMMM dd, yyyy")}
+                                        </p>
+                                        <p className="text-zinc-400 text-xs flex items-center gap-1 mt-0.5">
+                                            <Clock className="w-3 h-3" />
+                                            {format(toIST(selectedPhoto.createdAt), "hh:mm:ss a")} IST
+                                        </p>
+                                    </>
                                 )}
                             </div>
                             <button
                                 onClick={() => setSelectedPhoto(null)}
-                                className="text-white text-2xl hover:text-gray-300 transition-colors"
+                                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition"
                             >
-                                ✕
+                                <XCircle className="w-5 h-5" />
                             </button>
                         </div>
-                        <div className="flex-1 flex items-center justify-center overflow-auto">
-                            <img 
-                                src={selectedPhoto.imageUrl} 
-                                alt="fullscreen attendance"
-                                className="max-w-full max-h-full object-contain"
+
+                        {/* Photo */}
+                        <div className="w-full rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+                            <img
+                                src={selectedPhoto.imageUrl}
+                                alt="Attendance photo"
+                                className="w-full object-contain max-h-[70vh]"
                             />
+                        </div>
+
+                        {/* Bottom badge */}
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                            <span className="text-xs text-emerald-300 font-semibold">Attendance Verified</span>
                         </div>
                     </div>
                 </div>

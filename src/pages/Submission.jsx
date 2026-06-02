@@ -94,82 +94,45 @@ const STEPS = [
 ]
 
 const Instructions = () => (
-    <div className="space-y-4">
-        {/* Header */}
-        <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700/60">
-            {/* Banner */}
-            <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-500 px-6 py-5">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+        {/* Minimal header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">How to submit</p>
+            <span className="text-[11px] text-zinc-400">4 steps · ~2 min</span>
+        </div>
+
+        {/* Steps — compact horizontal on desktop, vertical on mobile */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-100 dark:divide-zinc-800">
+            {STEPS.map(({ n, title, text }) => (
+                <div key={n} className="px-4 py-3 space-y-1">
+                    <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[10px] font-bold flex items-center justify-center shrink-0">{n}</span>
+                        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{title}</p>
                     </div>
-                    <div>
-                        <h3 className="text-white font-bold text-base leading-tight">How to submit your project</h3>
-                        <p className="text-blue-100 text-xs mt-0.5">4 simple steps — takes less than 2 minutes</p>
-                    </div>
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 leading-relaxed pl-7">{text}</p>
                 </div>
-            </div>
+            ))}
+        </div>
 
-            {/* Steps */}
-            <div className="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
-                {STEPS.map(({ n, title, text, icon }) => (
-                    <div key={n} className="flex items-start gap-4 px-5 py-4">
-                        {/* Step number + icon stack */}
-                        <div className="shrink-0 flex flex-col items-center gap-1">
-                            <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shadow-sm shadow-blue-200 dark:shadow-none">
-                                {n}
-                            </div>
-                            {n < 4 && <div className="w-px flex-1 min-h-[16px] bg-blue-100 dark:bg-zinc-700" />}
-                        </div>
-                        <div className="pt-1 pb-2">
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-blue-500 dark:text-blue-400">{icon}</span>
-                                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{title}</p>
-                            </div>
-                            <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{text}</p>
-                        </div>
-                    </div>
+        {/* Sub-folders — inline chips */}
+        <div className="px-4 py-3 border-t border-zinc-100 dark:border-zinc-800">
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mb-2 uppercase tracking-wider font-semibold">Required sub-folders</p>
+            <div className="flex flex-wrap gap-1.5">
+                {FOLDERS.map(({ icon: Icon, color, label }) => (
+                    <span key={label} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs text-zinc-600 dark:text-zinc-300">
+                        <span className={`w-4 h-4 rounded flex items-center justify-center ${color}`}><Icon size={10} /></span>
+                        {label}
+                    </span>
                 ))}
             </div>
         </div>
 
-        {/* Required sub-folders */}
-        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-700/60 overflow-hidden bg-white dark:bg-zinc-900">
-            <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
-                <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
-                </svg>
-                <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Required sub-folders inside your master folder</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-zinc-100 dark:bg-zinc-800">
-                {FOLDERS.map(({ icon: Icon, color, label, desc, example }) => (
-                    <div key={label} className="flex items-start gap-3 bg-white dark:bg-zinc-900 px-4 py-3.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-                            <Icon size={16} />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 leading-tight">{label}</p>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{desc}</p>
-                            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 italic mt-0.5 truncate">{example}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-
-        {/* Warning */}
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-4 py-3.5">
-            <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
-                <AlertCircle size={15} className="text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Make your folder public before submitting</p>
-                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                    Set sharing to <strong>"Anyone with the link → Viewer"</strong> — otherwise reviewers will get an access denied error.
-                </p>
-            </div>
+        {/* Warning — one line */}
+        <div className="flex items-center gap-2 px-4 py-2.5 border-t border-amber-100 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/20">
+            <AlertCircle size={12} className="text-amber-500 shrink-0" />
+            <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                Set folder sharing to <strong>"Anyone with the link → Viewer"</strong> before submitting, or reviewers will see an access denied error.
+            </p>
         </div>
     </div>
 )

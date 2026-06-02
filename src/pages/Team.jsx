@@ -144,6 +144,10 @@ const Team = () => {
     const [teamDirSort, setTeamDirSort] = useState({ col: "name", dir: "asc" }); // col: name|login|mobile|groups
     const TEAM_DIR_PAGE_SIZE = 50;
 
+    // Login reminder state
+    const [loginReminderLoading, setLoginReminderLoading] = useState(false);       // bulk
+    const [loginReminderRowId,   setLoginReminderRowId]   = useState(null);        // per-row
+
     // Search-by-email remove state
     const [emailSearch, setEmailSearch] = useState("");
     const [emailSearchResult, setEmailSearchResult] = useState(null);
@@ -285,6 +289,41 @@ const Team = () => {
     useEffect(() => {
         if (showTeamDir) fetchTeamDir();
     }, [showTeamDir, currentWorkspace?.id]);
+
+    // ── Send login reminder (bulk = all never-logged-in, or single userId) ────
+    const sendLoginReminderBulk = async () => {
+        if (!currentWorkspace?.id) return;
+        setLoginReminderLoading(true);
+        try {
+            const { data } = await api.post(
+                "/api/users/send-login-reminder",
+                { workspaceId: currentWorkspace.id },
+                { headers: { Authorization: `Bearer ${await getToken()}` } }
+            );
+            toast.success(data.message || "Reminder emails sent!");
+        } catch (err) {
+            toast.error(err?.response?.data?.message || err.message);
+        } finally {
+            setLoginReminderLoading(false);
+        }
+    };
+
+    const sendLoginReminderOne = async (userId, userName) => {
+        if (!currentWorkspace?.id) return;
+        setLoginReminderRowId(userId);
+        try {
+            const { data } = await api.post(
+                "/api/users/send-login-reminder",
+                { workspaceId: currentWorkspace.id, userId },
+                { headers: { Authorization: `Bearer ${await getToken()}` } }
+            );
+            toast.success(`Reminder sent to ${userName}!`);
+        } catch (err) {
+            toast.error(err?.response?.data?.message || err.message);
+        } finally {
+            setLoginReminderRowId(null);
+        }
+    };
 
     // Reset page when filter/search changes
     useEffect(() => { setTeamDirPage(1); }, [teamDirSearch, teamDirFilter, teamDirSort]);
@@ -1091,6 +1130,24 @@ const Team = () => {
                                     <RefreshCw className={`size-3.5 ${teamDirLoading ? "animate-spin" : ""}`} />
                                     Refresh
                                 </button>
+
+                                {/* Bulk login reminder — shown when Never Logged In filter is active */}
+                                {teamDirFilter === "never-logged" && neverLoggedCount > 0 && (
+                                    <button
+                                        onClick={sendLoginReminderBulk}
+                                        disabled={loginReminderLoading}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition disabled:opacity-50 shadow-sm"
+                                    >
+                                        {loginReminderLoading ? (
+                                            <RefreshCw className="size-3.5 animate-spin" />
+                                        ) : (
+                                            <svg className="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                            </svg>
+                                        )}
+                                        Send Reminder to All ({neverLoggedCount})
+                                    </button>
+                                )}
                             </div>
 
                             {/* Loading */}
@@ -1208,7 +1265,7 @@ const Team = () => {
                                                         </td>
                                                         {/* Actions */}
                                                         <td className="py-3 px-4">
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-2 flex-wrap">
                                                                 {/* WhatsApp */}
                                                                 {member.whatsappLink ? (
                                                                     <a href={member.whatsappLink} target="_blank" rel="noreferrer"
@@ -1223,6 +1280,24 @@ const Team = () => {
                                                                         <MessageCircle className="size-3.5" />
                                                                         No mobile
                                                                     </span>
+                                                                )}
+                                                                {/* Login reminder — only for never-logged-in users */}
+                                                                {!member.hasLoggedIn && (
+                                                                    <button
+                                                                        onClick={() => sendLoginReminderOne(member.id, member.name || member.email)}
+                                                                        disabled={loginReminderRowId === member.id}
+                                                                        title="Send login reminder email"
+                                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/60 text-red-700 dark:text-red-400 text-[11px] font-medium transition disabled:opacity-50"
+                                                                    >
+                                                                        {loginReminderRowId === member.id ? (
+                                                                            <RefreshCw className="size-3 animate-spin" />
+                                                                        ) : (
+                                                                            <svg className="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                                            </svg>
+                                                                        )}
+                                                                        Send Login Mail
+                                                                    </button>
                                                                 )}
                                                                 {/* Reset password */}
                                                                 <ResetPasswordButton memberId={member.id} memberName={member.name} memberEmail={member.email} workspaceId={currentWorkspace?.id} getToken={getToken} />

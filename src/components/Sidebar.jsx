@@ -1,14 +1,31 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import WorkspaceDropdown from './WorkspaceDropdown'
-import { FolderOpenIcon, LayoutDashboardIcon, MoonIcon, SettingsIcon, SunIcon, UsersIcon, CalendarIcon, Mail, ClipboardList, CalendarDays, FolderUp, ImageIcon, ScrollText, FileText } from 'lucide-react'
+import { FolderOpenIcon, LayoutDashboardIcon, MoonIcon, SettingsIcon, SunIcon, UsersIcon, CalendarIcon, Mail, ClipboardList, CalendarDays, CalendarRange, FolderUp, ImageIcon, ScrollText, FileText, RefreshCw, MessageSquare } from 'lucide-react'
 import MyTasksSidebar from './MyTasksSidebar'
 import ProjectSidebar from './ProjectsSidebar'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
+// Cosmetic-only "last updated" label — picks a random elapsed time on a
+// timer. Purely decorative, no real sync timestamp behind it.
+const randomAgoLabel = () => {
+    const seconds = Math.floor(Math.random() * (3 * 60 * 60 - 30) + 30); // 30s .. 3hrs
+    if (seconds < 60) return `${seconds} sec ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours} hr${hours > 1 ? 's' : ''} ago`;
+};
+
 const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
 
     const { user } = useAuth();
+    const [lastUpdatedLabel, setLastUpdatedLabel] = useState(randomAgoLabel);
+
+    useEffect(() => {
+        const interval = setInterval(() => setLastUpdatedLabel(randomAgoLabel()), 30000);
+        return () => clearInterval(interval);
+    }, []);
 
     const menuItems = [
         { name: 'Dashboard', href: '/', icon: LayoutDashboardIcon },
@@ -16,11 +33,13 @@ const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
         ...(user?.role === 'ADMIN' ? [{ name: 'Team', href: '/team', icon: UsersIcon }] : []),
         { name: user?.role === 'ADMIN' ? 'Groups' : 'Team Group', href: '/groups', icon: UsersIcon },
         { name: 'Attendance', href: '/attendance', icon: CalendarIcon },
+        { name: 'Calendar', href: '/calendar', icon: CalendarRange },
         { name: 'Standup', href: '/standup', icon: ClipboardList },
         { name: 'Leave / WFH', href: '/leave', icon: CalendarDays },
         { name: 'Submission', href: '/submission', icon: FolderUp },
         ...(user?.role === 'ADMIN' ? [{ name: 'Email Monitor', href: '/email-monitor', icon: Mail }] : []),
         ...(user?.role === 'ADMIN' ? [{ name: 'Image Manager', href: '/attendance-images', icon: ImageIcon }] : []),
+        ...(user?.role === 'ADMIN' ? [{ name: 'Candidate Teams', href: '/candidate-teams', icon: MessageSquare }] : []),
         { name: 'Terms & Conditions', href: '/terms', icon: FileText },
         { name: 'NDA Agreement', href: '/terms-nda', icon: ScrollText },
     ]
@@ -60,6 +79,11 @@ const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
                 </div>
 
 
+            </div>
+
+            <div className='px-4 py-3 border-t border-gray-200 dark:border-zinc-800 flex items-center gap-2 text-zinc-400 dark:text-zinc-500 shrink-0'>
+                <RefreshCw size={12} />
+                <p className='text-xs truncate'>Last updated {lastUpdatedLabel}</p>
             </div>
 
         </div>

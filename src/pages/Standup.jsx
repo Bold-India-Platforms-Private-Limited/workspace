@@ -8,6 +8,7 @@ import {
     Loader2, User, CheckCircle2, XCircle, BarChart2, Calendar, RefreshCw,
 } from "lucide-react";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from "date-fns";
+import { thumb } from "../utils/cloudinaryUrl";
 
 const TYPES = [
     "SOFTWARE_DEV", "DATA_ANALYSIS", "BRAINSTORM", "DESIGN",
@@ -392,7 +393,7 @@ function AdminView({ workspaceId, getToken }) {
                                                     >
                                                         <div className="flex items-center gap-2">
                                                             {user.image ? (
-                                                                <img src={user.image} className="size-6 rounded-full object-cover" alt="" />
+                                                                <img src={thumb(user.image, 48, 48)} className="size-6 rounded-full object-cover" alt="" />
                                                             ) : (
                                                                 <div className="size-6 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-[10px] font-bold text-blue-600 dark:text-blue-400">
                                                                     {user.name?.[0]?.toUpperCase()}
@@ -473,7 +474,7 @@ function AdminView({ workspaceId, getToken }) {
                                                 <td className="py-2.5 px-3">
                                                     <div className="flex items-center gap-2">
                                                         {user.image ? (
-                                                            <img src={user.image} className="size-6 rounded-full object-cover" alt="" />
+                                                            <img src={thumb(user.image, 48, 48)} className="size-6 rounded-full object-cover" alt="" />
                                                         ) : (
                                                             <div className="size-6 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-[10px] font-bold text-blue-600">
                                                                 {user.name?.[0]?.toUpperCase()}

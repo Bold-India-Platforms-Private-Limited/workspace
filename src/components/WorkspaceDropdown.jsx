@@ -5,6 +5,7 @@ import { setCurrentWorkspace } from "../features/workspaceSlice";
 import { useNavigate } from "react-router-dom";
 import CreateWorkspaceDialog from "./CreateWorkspaceDialog";
 import { useAuth } from "../auth/AuthContext";
+import { thumb } from "../utils/cloudinaryUrl";
 
 function WorkspaceDropdown() {
     const { workspaces } = useSelector((state) => state.workspace);
@@ -38,7 +39,7 @@ function WorkspaceDropdown() {
         <div className="relative m-4" ref={dropdownRef}>
             <button onClick={() => setIsOpen(prev => !prev)} className="w-full flex items-center justify-between p-3 h-auto text-left rounded hover:bg-gray-100 dark:hover:bg-zinc-800" >
                 <div className="flex items-center gap-3 min-w-0">
-                    <img src={currentWorkspace?.image_url} alt={currentWorkspace?.name} className="w-8 h-8 rounded shadow" />
+                    <img src={thumb(currentWorkspace?.image_url, 64, 64)} alt={currentWorkspace?.name} className="w-8 h-8 rounded shadow" />
                     <div className="min-w-0 flex-1">
                         <p className="font-semibold text-gray-800 dark:text-white text-sm truncate line-clamp-1">
                             {currentWorkspace?.name || "Select Workspace"}
@@ -59,7 +60,7 @@ function WorkspaceDropdown() {
                         </p>
                         {workspaces.map((workspace) => (
                             <div key={workspace.id} onClick={() => onSelectWorkspace(workspace.id)} className="flex items-center gap-3 p-2 cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-zinc-800" >
-                                <img src={workspace.image_url || ""} alt={workspace.name} className="w-6 h-6 rounded bg-gray-200 dark:bg-zinc-800" />
+                                <img src={thumb(workspace.image_url, 48, 48) || ""} alt={workspace.name} className="w-6 h-6 rounded bg-gray-200 dark:bg-zinc-800" />
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-gray-800 dark:text-white truncate line-clamp-1">
                                         {workspace.name}

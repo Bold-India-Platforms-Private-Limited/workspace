@@ -20,3 +20,6 @@ export const disconnectSocket = () => {
         socket = null;
     }
 };
+
+// Peek at connection state without creating a socket instance as a side effect.
+export const isSocketConnected = () => Boolean(socket?.connected);

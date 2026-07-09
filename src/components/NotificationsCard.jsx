@@ -8,16 +8,17 @@ import { useNavigate } from "react-router-dom";
 const NotificationsCard = () => {
     const { getToken } = useAuth();
     const currentWorkspace = useSelector((state) => state.workspace?.currentWorkspace || null);
+    const workspaceId = currentWorkspace?.id;
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
         const fetchNotifications = async () => {
-            if (!currentWorkspace) return;
+            if (!workspaceId) return;
             try {
                 setLoading(true);
-                const { data } = await api.get(`/api/notifications?workspaceId=${currentWorkspace.id}`, {
+                const { data } = await api.get(`/api/notifications?workspaceId=${workspaceId}`, {
                     headers: { Authorization: `Bearer ${await getToken()}` },
                 });
                 setNotifications(data.notifications || []);
@@ -26,7 +27,9 @@ const NotificationsCard = () => {
             }
         };
         fetchNotifications();
-    }, [currentWorkspace, getToken]);
+        // Only re-fetch when the workspace actually changes, not on every
+        // object-reference change from unrelated redux updates.
+    }, [workspaceId, getToken]);
 
     const visibleNotifications = notifications.slice(0, 2);
 

@@ -35,7 +35,6 @@ const Groups = () => {
     const [deleteConfirmText, setDeleteConfirmText] = useState("");
     const [isMessagesLoading, setIsMessagesLoading] = useState(false);
     const [isSending, setIsSending] = useState(false);
-    const [groupLastMessages, setGroupLastMessages] = useState({});
     const [seenMessages, setSeenMessages] = useState(() => {
         try { return JSON.parse(localStorage.getItem("seenGroupMessages") || "{}"); } catch { return {}; }
     });
@@ -77,35 +76,19 @@ const Groups = () => {
         }
     };
 
-    const fetchGroupLastMessages = async () => {
-        if (!currentWorkspace) return;
-        try {
-            const token = await getToken();
-            const results = {};
-            await Promise.all(
-                (groups || []).map(async (group) => {
-                    try {
-                        const { data } = await api.get(`/api/groups/${group.id}/messages`, { headers: { Authorization: `Bearer ${token}` } });
-                        const msgs = data.messages || [];
-                        if (msgs.length > 0) {
-                            results[group.id] = msgs[msgs.length - 1];
-                        }
-                    } catch { /* skip */ }
-                })
-            );
-            setGroupLastMessages(results);
-        } catch { /* skip */ }
-    };
+    // Last message per group now comes embedded in `/api/groups` itself
+    // (see backend listGroups), so no per-group history fetch is needed here.
+    const groupLastMessages = useMemo(() => {
+        const map = {};
+        (groups || []).forEach((g) => {
+            if (g.lastMessage) map[g.id] = g.lastMessage;
+        });
+        return map;
+    }, [groups]);
 
     useEffect(() => {
         fetchGroups();
     }, [currentWorkspace]);
-
-    useEffect(() => {
-        if (groups.length > 0) {
-            fetchGroupLastMessages();
-        }
-    }, [groups]);
 
     const visibleGroups = useMemo(() => {
         let filtered = user?.role === "ADMIN" ? [...groups] : groups.filter((group) => group.members?.some((m) => m.userId === user?.id));
@@ -218,12 +201,35 @@ const Groups = () => {
         setIsEditOpen(false);
     };
 
+    // Kept in sync with `messages` so the poll below always sees the latest
+    // value without needing `fetchMessages` to be recreated on every render.
+    const messagesRef = useRef([]);
+    useEffect(() => {
+        messagesRef.current = messages;
+    }, [messages]);
+
     const fetchMessages = async (showLoading = false) => {
         if (!selectedGroup) return;
         if (showLoading) setIsMessagesLoading(true);
         try {
-            const { data } = await api.get(`/api/groups/${selectedGroup.id}/messages`, { headers: { Authorization: `Bearer ${await getToken()}` } });
-            setMessages(data.messages || []);
+            // Background polls ask only for messages after the last one we
+            // already have, instead of re-downloading the whole chat history
+            // every 10 seconds. The initial/manual load (showLoading=true)
+            // still fetches full history, unchanged.
+            const last = !showLoading ? messagesRef.current[messagesRef.current.length - 1] : null;
+            const url = `/api/groups/${selectedGroup.id}/messages${last?.createdAt ? `?after=${encodeURIComponent(last.createdAt)}` : ""}`;
+            const { data } = await api.get(url, { headers: { Authorization: `Bearer ${await getToken()}` } });
+            const incoming = data.messages || [];
+
+            if (showLoading || !last?.createdAt) {
+                setMessages(incoming);
+            } else if (incoming.length > 0) {
+                setMessages((prev) => {
+                    const existingIds = new Set(prev.map((m) => m.id));
+                    const newOnes = incoming.filter((m) => !existingIds.has(m.id));
+                    return newOnes.length ? prev.concat(newOnes) : prev;
+                });
+            }
         } finally {
             if (showLoading) setIsMessagesLoading(false);
         }
@@ -301,7 +307,7 @@ const Groups = () => {
             toast.success(`Cleared chat in ${cleared} group(s)`);
             setIsBulkClearChatOpen(false);
             setSelectedGroupsForDelete(new Set());
-            fetchGroupLastMessages();
+            fetchGroups();
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);
         } finally {
@@ -330,7 +336,7 @@ const Groups = () => {
             setBroadcastMessage("");
             setIsBroadcastOpen(false);
             setSelectedGroupsForDelete(new Set());
-            fetchGroupLastMessages();
+            fetchGroups();
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);
         } finally {

@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeftIcon, PlusIcon, SettingsIcon, BarChart3Icon, CalendarIcon, FileStackIcon, ZapIcon, FileIcon, FolderOpenIcon, Maximize2, X } from "lucide-react";
+import { ArrowLeftIcon, PlusIcon, SettingsIcon, BarChart3Icon, CalendarIcon, FileStackIcon, ZapIcon, FileIcon, FolderOpenIcon, Maximize2, X, MessageSquare, Send, Loader2 } from "lucide-react";
 import ProjectAnalytics from "../components/ProjectAnalytics";
 import ProjectSettings from "../components/ProjectSettings";
 import CreateTaskDialog from "../components/CreateTaskDialog";
@@ -9,6 +9,8 @@ import ProjectCalendar from "../components/ProjectCalendar";
 import ProjectTasks from "../components/ProjectTasks";
 import ProjectDocuments from "../components/ProjectDocuments";
 import { useAuth } from "../auth/AuthContext";
+import api from "../configs/api";
+import toast from "react-hot-toast";
 import DOMPurify from "dompurify";
 
 export default function ProjectDetail() {
@@ -26,7 +28,10 @@ export default function ProjectDetail() {
     const [showCreateTask, setShowCreateTask] = useState(false);
     const [activeTab, setActiveTab] = useState(tab || "tasks");
     const [htmlModalOpen, setHtmlModalOpen] = useState(false);
-    const { user } = useAuth();
+    const [showMessagePM, setShowMessagePM] = useState(false);
+    const [pmMessage, setPmMessage] = useState("");
+    const [sendingPM, setSendingPM] = useState(false);
+    const { user, getToken } = useAuth();
     const userGroupIds = useMemo(() => {
         if (!user?.id || !currentWorkspace) return new Set();
         return new Set(
@@ -66,6 +71,25 @@ export default function ProjectDetail() {
         ON_HOLD: "bg-amber-200 text-amber-900 dark:bg-amber-500 dark:text-amber-900",
         COMPLETED: "bg-blue-200 text-blue-900 dark:bg-blue-500 dark:text-blue-900",
         CANCELLED: "bg-red-200 text-red-900 dark:bg-red-500 dark:text-red-900",
+    };
+
+    const handleSendPM = async () => {
+        if (!pmMessage.trim()) return;
+        try {
+            setSendingPM(true);
+            await api.post(
+                `/api/projects/${id}/messages`,
+                { message: pmMessage.trim() },
+                { headers: { Authorization: `Bearer ${await getToken()}` } }
+            );
+            toast.success("Message sent to Project Manager");
+            setPmMessage("");
+            setShowMessagePM(false);
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setSendingPM(false);
+        }
     };
 
     if (!project) {
@@ -116,15 +140,24 @@ export default function ProjectDetail() {
                         </span>
                     </div>
                 </div>
-                {user?.role === "ADMIN" && (
+                <div className="flex items-center gap-2">
                     <button
-                        onClick={() => setShowCreateTask(true)}
-                        className="flex items-center gap-2 px-5 py-2 text-sm rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white"
+                        onClick={() => setShowMessagePM(true)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
                     >
-                        <PlusIcon className="size-4" />
-                        New Task
+                        <MessageSquare className="size-4" />
+                        Message PM
                     </button>
-                )}
+                    {user?.role === "ADMIN" && (
+                        <button
+                            onClick={() => setShowCreateTask(true)}
+                            className="flex items-center gap-2 px-5 py-2 text-sm rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white"
+                        >
+                            <PlusIcon className="size-4" />
+                            New Task
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Info Cards */}
@@ -304,6 +337,47 @@ export default function ProjectDetail() {
 
             {/* Create Task Modal */}
             {showCreateTask && user?.role === "ADMIN" && <CreateTaskDialog showCreateTask={showCreateTask} setShowCreateTask={setShowCreateTask} projectId={id} />}
+
+            {/* Message Project Manager Modal */}
+            {showMessagePM && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+                    onClick={() => setShowMessagePM(false)}
+                >
+                    <div
+                        className="bg-white dark:bg-zinc-900 rounded-lg max-w-md w-full p-5 space-y-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div>
+                            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Message Project Manager</h3>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Send a note about "{project.name}" to its Project Manager.</p>
+                        </div>
+                        <textarea
+                            rows={4}
+                            value={pmMessage}
+                            onChange={(e) => setPmMessage(e.target.value)}
+                            placeholder="Type your message…"
+                            className="w-full px-3 py-2 text-sm rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setShowMessagePM(false)}
+                                className="px-4 py-2 rounded border border-zinc-300 dark:border-zinc-700 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSendPM}
+                                disabled={sendingPM || !pmMessage.trim()}
+                                className="flex items-center gap-2 px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-50 transition"
+                            >
+                                {sendingPM ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                                Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

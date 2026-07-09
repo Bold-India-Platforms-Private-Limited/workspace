@@ -4,6 +4,7 @@ import Layout from './pages/Layout'
 import { Toaster } from 'react-hot-toast'
 import Dashboard from './pages/Dashboard'
 import EmailProgressToast from './components/EmailProgressToast'
+import IdleDisconnect from './components/IdleDisconnect'
 
 // Lazy-load non-critical routes to reduce initial bundle
 const Projects = lazy(() => import('./pages/Projects'))
@@ -18,6 +19,8 @@ const Standup = lazy(() => import('./pages/Standup'))
 const Leave = lazy(() => import('./pages/Leave'))
 const Submission = lazy(() => import('./pages/Submission'))
 const AttendanceImageManager = lazy(() => import('./pages/AttendanceImageManager'))
+const Calendar = lazy(() => import('./pages/Calendar'))
+const CandidateTeams = lazy(() => import('./pages/CandidateTeams'))
 const TermsNDA = lazy(() => import('./pages/TermsNDA'))
 const TermsConditions = lazy(() => import('./pages/TermsConditions'))
 
@@ -38,6 +41,7 @@ const App = () => {
         <>
             <Toaster />
             <EmailProgressToast />
+            <IdleDisconnect />
             <Routes>
                 <Route path="/" element={<Layout />}>
                     <Route index element={<Dashboard />} />
@@ -53,6 +57,8 @@ const App = () => {
                     <Route path='leave' element={<Suspense fallback={<PageFallback />}><Leave /></Suspense>} />
                     <Route path='submission' element={<Suspense fallback={<PageFallback />}><Submission /></Suspense>} />
                     <Route path='attendance-images' element={<Suspense fallback={<PageFallback />}><AttendanceImageManager /></Suspense>} />
+                    <Route path='calendar' element={<Suspense fallback={<PageFallback />}><Calendar /></Suspense>} />
+                    <Route path='candidate-teams' element={<Suspense fallback={<PageFallback />}><CandidateTeams /></Suspense>} />
                     <Route path='terms-nda' element={<Suspense fallback={<PageFallback />}><TermsNDA /></Suspense>} />
                     <Route path='terms' element={<Suspense fallback={<PageFallback />}><TermsConditions /></Suspense>} />
                 </Route>

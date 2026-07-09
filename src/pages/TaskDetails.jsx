@@ -6,6 +6,7 @@ import { CalendarIcon, PenIcon, Maximize2, X } from "lucide-react";
 import { useSelector } from "react-redux";
 import { useAuth } from "../auth/AuthContext";
 import DOMPurify from "dompurify";
+import { thumb } from "../utils/cloudinaryUrl";
 
 const TaskDetails = () => {
     const [searchParams] = useSearchParams();
@@ -124,7 +125,7 @@ const TaskDetails = () => {
                                         {visible.map((a) => (
                                             <span key={a.id} className="flex items-center gap-2 px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-800 text-xs">
                                                 {a.user?.image ? (
-                                                    <img src={a.user.image} className="size-5 rounded-full object-cover" alt="avatar" />
+                                                    <img src={thumb(a.user.image, 40, 40)} className="size-5 rounded-full object-cover" alt="avatar" />
                                                 ) : (
                                                     <span className="size-5 rounded-full bg-zinc-300 dark:bg-zinc-700 text-[9px] font-semibold text-zinc-700 dark:text-zinc-200 flex items-center justify-center">
                                                         {getInitials(a.user?.name || a.user?.email)}

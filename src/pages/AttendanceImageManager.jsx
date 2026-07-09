@@ -7,6 +7,7 @@ import {
     AlertTriangle, X, Loader2, CheckSquare, Square,
 } from "lucide-react";
 import { TIMEZONE } from "../configs/timezone";
+import { thumb } from "../utils/cloudinaryUrl";
 
 const fmtDate = (d) =>
     new Date(d).toLocaleDateString("en-IN", { timeZone: TIMEZONE, day: "2-digit", month: "short", year: "numeric" });
@@ -35,7 +36,7 @@ const ImageCard = memo(({ record, onDelete, deleting }) => {
             {lightbox && <Lightbox url={record.imageUrl} onClose={() => setLightbox(false)} />}
             <div className="group relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition">
                 <div className="aspect-square overflow-hidden cursor-zoom-in bg-zinc-100 dark:bg-zinc-800" onClick={() => setLightbox(true)}>
-                    <img src={record.imageUrl} alt={record.user?.name || "attendance"} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                    <img src={thumb(record.imageUrl)} alt={record.user?.name || "attendance"} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                 </div>
                 <div className="p-2">
                     <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100 truncate">{record.user?.name || record.user?.email || "Unknown"}</p>
@@ -64,7 +65,7 @@ const OrphanCard = memo(({ item, selected, onToggle }) => {
                 onClick={() => onToggle(item.publicId)}
             >
                 <div className="aspect-square overflow-hidden bg-zinc-100 dark:bg-zinc-800" onClick={(e) => { e.stopPropagation(); setLightbox(true); }}>
-                    <img src={item.url} alt="orphan" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                    <img src={thumb(item.url)} alt="orphan" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                 </div>
                 <div className="p-2">
                     <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 truncate">{item.folder}</p>

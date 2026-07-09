@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { fetchWorkspaces } from "../features/workspaceSlice";
 import { useNavigate } from "react-router-dom";
 import { getSocket } from "../configs/socket";
+import { thumb } from "../utils/cloudinaryUrl";
 
 const ResetPasswordButton = ({ memberId, memberEmail, memberName, workspaceId, getToken }) => {
     const [open, setOpen] = useState(false);
@@ -1209,7 +1210,7 @@ const Team = () => {
                                                         <td className="py-3 px-4">
                                                             <div className="flex items-center gap-2.5">
                                                                 {member.image ? (
-                                                                    <img src={member.image} className="size-8 rounded-full object-cover shrink-0" alt="" />
+                                                                    <img src={thumb(member.image, 64, 64)} className="size-8 rounded-full object-cover shrink-0" alt="" />
                                                                 ) : (
                                                                     <div className="size-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-[11px] font-bold text-white shrink-0">
                                                                         {initials}

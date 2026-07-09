@@ -159,6 +159,20 @@ const Attendance = () => {
     const todayKey = todayKeyIST();
     const todayAttendance = attendanceMap.get(todayKey);
 
+    // Weekend block — frontend-only, no server-side day-of-week check.
+    // 0 = Sunday, 6 = Saturday.
+    const todayDow = currentTime.getDay();
+    const isWeekendToday = todayDow === 0 || todayDow === 6;
+
+    // If the camera happens to be running when the date rolls into the
+    // weekend, tear it down instead of leaving it active behind the blocked UI.
+    useEffect(() => {
+        if (isWeekendToday && (stream || captured)) {
+            stopCamera();
+            setCaptured(null);
+        }
+    }, [isWeekendToday]);
+
     const startCamera = async () => {
         try {
             setCameraError("");
@@ -906,11 +920,26 @@ const Attendance = () => {
                                         Done
                                     </span>
                                 )}
+                                {isWeekendToday && !todayAttendance && (
+                                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 uppercase tracking-wider">
+                                        Weekend
+                                    </span>
+                                )}
                             </div>
 
                             {/* Card body */}
                             <div className="p-5 space-y-4">
-                                {!permissionGranted ? (
+                                {isWeekendToday ? (
+                                    <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+                                        <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                                            <XCircle className="w-7 h-7 text-zinc-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Attendance isn't marked on weekends</p>
+                                            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Saturdays and Sundays are off — check back on the next working day.</p>
+                                        </div>
+                                    </div>
+                                ) : !permissionGranted ? (
                                     <div className="space-y-4">
                                         {/* Camera placeholder */}
                                         <div className="relative aspect-video rounded-xl bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-800 dark:to-zinc-800/50 border-2 border-dashed border-zinc-200 dark:border-zinc-700 flex flex-col items-center justify-center gap-3">

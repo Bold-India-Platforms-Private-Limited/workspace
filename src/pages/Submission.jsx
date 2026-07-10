@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux'
 import { useAuth } from '../auth/AuthContext'
 import api from '../configs/api'
 import toast from 'react-hot-toast'
+import { thumb } from '../utils/cloudinaryUrl'
 import {
     FolderOpen, Link2, ExternalLink, CheckCircle2, Clock,
     Search, ChevronDown, ChevronUp, Pencil, X, Check,
@@ -336,7 +337,7 @@ const AdminRow = ({ member, onNoteUpdated }) => {
             >
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0 overflow-hidden">
                     {member.image
-                        ? <img src={member.image} alt="" className="w-full h-full object-cover" />
+                        ? <img src={thumb(member.image, 64, 64)} alt="" className="w-full h-full object-cover" />
                         : member.name?.[0]?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">

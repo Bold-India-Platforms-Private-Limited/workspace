@@ -87,6 +87,7 @@ export default function AttendanceImageManager() {
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState(null);      // single record being deleted
     const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [range, setRange] = useState("7"); // "7" | "30" | "90" | "all" — this list only grows, so default to a recent window
 
     // day-key = `${wid}__${dateStr}`
     const [selectedDays, setSelectedDays] = useState(new Set());
@@ -166,7 +167,10 @@ export default function AttendanceImageManager() {
     const fetchImages = useCallback(async () => {
         try {
             setLoading(true);
-            const { data } = await api.get("/api/attendance-images", { headers: await authHeaders() });
+            const { data } = await api.get("/api/attendance-images", {
+                params: { days: range },
+                headers: await authHeaders(),
+            });
             setGrouped(data.grouped || {});
             setSelectedDays(new Set());
         } catch (err) {
@@ -174,9 +178,9 @@ export default function AttendanceImageManager() {
         } finally {
             setLoading(false);
         }
-    }, [authHeaders]);
+    }, [authHeaders, range]);
 
-    useEffect(() => { if (user?.role === "ADMIN") fetchImages(); }, []);
+    useEffect(() => { if (user?.role === "ADMIN") fetchImages(); }, [range]);
 
     // ── core bulk delete ──────────────────────────────────────────────────────
     const bulkDelete = useCallback(async (ids, label) => {
@@ -304,10 +308,23 @@ export default function AttendanceImageManager() {
                         {totalImages} images
                     </span>
                 </div>
-                <button onClick={fetchImages} disabled={loading} className="flex items-center gap-2 px-3 py-1.5 text-sm rounded border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 transition">
-                    <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-                    Refresh
-                </button>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={range}
+                        onChange={(e) => setRange(e.target.value)}
+                        title="This list only grows over time — pick a narrower window unless you need full history"
+                        className="px-3 py-1.5 text-sm rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300"
+                    >
+                        <option value="7">Last 7 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="all">All time</option>
+                    </select>
+                    <button onClick={fetchImages} disabled={loading} className="flex items-center gap-2 px-3 py-1.5 text-sm rounded border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 transition">
+                        <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+                        Refresh
+                    </button>
+                </div>
             </div>
 
             {/* Floating multi-day action bar */}

@@ -16,6 +16,7 @@ import {
     getYear,
 } from "date-fns";
 import { nowIST, toIST, todayKeyIST, dateKeyIST, TIMEZONE } from "../configs/timezone";
+import { thumb } from "../utils/cloudinaryUrl";
 
 const Attendance = () => {
     const { user, getToken } = useAuth();
@@ -202,18 +203,54 @@ const Attendance = () => {
         setStream(null);
     };
 
+    // Target stored-file size for attendance selfies. The backend relays
+    // whatever we send here straight through to Cloudinary, so shrinking it
+    // here cuts both the upload to our server AND our server's own upload to
+    // Cloudinary — the two legs that actually count against our own network
+    // transfer (viewing photos later goes straight browser-to-Cloudinary and
+    // never touches our backend at all).
+    const ATTENDANCE_PHOTO_TARGET_BYTES = 10 * 1024;
+
+    // Rough byte size of a data URL's underlying binary, without allocating
+    // an actual Blob just to check.
+    const estimateDataUrlBytes = (dataUrl) => {
+        const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+        return Math.floor((base64.length * 3) / 4);
+    };
+
     const capturePhoto = () => {
         if (!videoRef.current || !canvasRef.current) return;
         const video = videoRef.current;
         const canvas = canvasRef.current;
-        const targetWidth = 480;
-        const scale = targetWidth / video.videoWidth;
-        canvas.width = targetWidth;
-        canvas.height = video.videoHeight * scale;
         const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.5);
-        setCaptured(dataUrl);
+
+        // A fixed width/quality doesn't reliably hit a byte target — a busy
+        // background or bad lighting can make the same settings 2-3x bigger.
+        // Step down width, then quality, until we're at/under the target
+        // (keeping the smallest attempt so far as a fallback either way).
+        const widths = [480, 360, 280, 220, 160];
+        const qualities = [0.6, 0.5, 0.4, 0.3, 0.2, 0.12];
+
+        let best = null;
+        outer:
+        for (const width of widths) {
+            const scale = width / video.videoWidth;
+            canvas.width = width;
+            canvas.height = video.videoHeight * scale;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            for (const quality of qualities) {
+                const candidate = canvas.toDataURL("image/jpeg", quality);
+                if (!best || estimateDataUrlBytes(candidate) < estimateDataUrlBytes(best)) {
+                    best = candidate;
+                }
+                if (estimateDataUrlBytes(candidate) <= ATTENDANCE_PHOTO_TARGET_BYTES) {
+                    best = candidate;
+                    break outer;
+                }
+            }
+        }
+
+        setCaptured(best);
         stopCamera();
     };
 
@@ -565,7 +602,7 @@ const Attendance = () => {
                                                     {hasPhoto ? (
                                                         <>
                                                             <img
-                                                                src={record.attendance.imageUrl}
+                                                                src={thumb(record.attendance.imageUrl, 240, 320)}
                                                                 alt={record.user.name}
                                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                             />
@@ -1147,7 +1184,7 @@ const Attendance = () => {
                                     <div className="p-3 flex items-center gap-3">
                                         <div className="w-14 h-14 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 flex-shrink-0">
                                             <img
-                                                src={todayAttendance.imageUrl}
+                                                src={thumb(todayAttendance.imageUrl, 64, 64)}
                                                 alt="today"
                                                 className="w-full h-full object-cover"
                                             />

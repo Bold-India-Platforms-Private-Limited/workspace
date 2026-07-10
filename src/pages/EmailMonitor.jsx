@@ -8,8 +8,10 @@ import toast from "react-hot-toast";
 import QuillEditor from "../components/QuillEditor";
 import { getSocket } from "../configs/socket";
 import { thumb } from "../utils/cloudinaryUrl";
+import { isIdleFor } from "../configs/activity";
 
 const PAGE_SIZE = 50;
+const IDLE_PAUSE_MS = 3 * 60 * 1000; // matches IdleDisconnect's threshold
 
 // ── Compose tab — send a subject/HTML-body email to all or selected members ───
 const ComposeEmailPanel = ({ currentWorkspace, getToken }) => {
@@ -268,7 +270,10 @@ const EmailMonitor = () => {
     useEffect(() => {
         if (user?.role === "ADMIN" && activeTab === "logs") {
             fetchEmails();
-            const interval = setInterval(() => fetchEmails(), 30000);
+            const interval = setInterval(() => {
+                if (isIdleFor(IDLE_PAUSE_MS)) return;
+                fetchEmails();
+            }, 30000);
             return () => clearInterval(interval);
         }
     }, [currentWorkspace, user, page, statusFilter, activeTab]);

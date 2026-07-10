@@ -4,9 +4,11 @@ import { useSelector } from "react-redux";
 import { ArrowLeft, UsersIcon, MessageCircle, Trash2, Search, Send, MessageSquareOff } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { toIST, nowIST, TIMEZONE } from "../configs/timezone";
+import { isIdleFor } from "../configs/activity";
 import toast from "react-hot-toast";
 
 const PAGE_SIZE = 200;
+const IDLE_PAUSE_MS = 3 * 60 * 1000; // matches IdleDisconnect's threshold
 
 const Groups = () => {
     const { getToken } = useAuth();
@@ -363,7 +365,13 @@ const Groups = () => {
     useEffect(() => {
         if (selectedGroup) {
             fetchMessages(true);
-            const interval = setInterval(() => fetchMessages(false), 10000);
+            const interval = setInterval(() => {
+                // Skip the network round-trip while the tab has been idle for
+                // a while — same "stop consuming backend resources" goal as
+                // IdleDisconnect, applied to this poll specifically.
+                if (isIdleFor(IDLE_PAUSE_MS)) return;
+                fetchMessages(false);
+            }, 10000);
             // Mark as seen
             const lastMsg = groupLastMessages[selectedGroup.id];
             if (lastMsg) {

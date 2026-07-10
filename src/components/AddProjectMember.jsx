@@ -5,7 +5,7 @@ import { Mail, UserPlus } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { fetchWorkspaces } from "../features/workspaceSlice";
+import { addProjectMember } from "../features/workspaceSlice";
 
 const AddProjectMember = ({ isDialogOpen, setIsDialogOpen }) => {
 
@@ -29,10 +29,17 @@ const AddProjectMember = ({ isDialogOpen, setIsDialogOpen }) => {
         setIsAdding(true);
 
         try {
-            await api.post(`/api/projects/${project.id}/addMember`, { email }, { headers: { Authorization: `Bearer ${await getToken()}` } });
+            const { data } = await api.post(`/api/projects/${project.id}/addMember`, { email }, { headers: { Authorization: `Bearer ${await getToken()}` } });
             toast.success("Added to project successfully");
             setIsDialogOpen(false);
-            dispatch(fetchWorkspaces({ getToken }));
+            // The selected email was already one of this workspace's members,
+            // so we already have their full user info client-side — no need
+            // to refetch the entire workspace graph just to show one new row.
+            const workspaceMember = currentWorkspace.members.find((m) => m.user.email === email);
+            dispatch(addProjectMember({
+                projectId: project.id,
+                member: { ...data.member, user: workspaceMember?.user },
+            }));
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);
         } finally {

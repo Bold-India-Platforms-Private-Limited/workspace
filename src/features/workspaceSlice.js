@@ -22,7 +22,7 @@ function readCache() {
     }
 }
 
-function writeCache(workspaces) {
+function writeCache(workspaces, etag) {
     // Never write an empty array — that would poison the cache and cause
     // the "no workspaces" flash on the next load
     if (!Array.isArray(workspaces) || workspaces.length === 0) {
@@ -30,8 +30,21 @@ function writeCache(workspaces) {
         return;
     }
     try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ workspaces, timestamp: Date.now() }));
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ workspaces, timestamp: Date.now(), etag: etag || null }));
     } catch { /* quota exceeded - ignore */ }
+}
+
+// The etag is a candidate for revalidation, independent of the render-cache's
+// 5-minute TTL above — the server (not this TTL) is the source of truth on
+// whether it's still valid, via the If-None-Match / 304 round trip below.
+function readStoredEtag() {
+    try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw).etag || null;
+    } catch {
+        return null;
+    }
 }
 
 export function clearWorkspaceCache() {
@@ -62,10 +75,21 @@ export const fetchWorkspaces = createAsyncThunk(
     "workspace/fetchWorkspaces",
     async ({ getToken }, { rejectWithValue }) => {
         try {
-            const { data } = await api.get("/api/workspaces", {
-                headers: { Authorization: `Bearer ${await getToken()}` },
+            const etag = readStoredEtag();
+            const { data, status, headers } = await api.get("/api/workspaces", {
+                headers: {
+                    Authorization: `Bearer ${await getToken()}`,
+                    ...(etag ? { "If-None-Match": etag } : {}),
+                },
+                // The backend echoes an unchanged payload as 304 (no body) —
+                // treat that as a normal response, not an axios error.
+                validateStatus: (s) => (s >= 200 && s < 300) || s === 304,
             });
-            return data.workspaces || [];
+
+            if (status === 304) {
+                return { notModified: true };
+            }
+            return { workspaces: data.workspaces || [], etag: headers.etag || headers.ETag };
         } catch (error) {
             // Propagate the error so `rejected` fires instead of `fulfilled`.
             // Previously this returned [] on error, poisoning the cache and
@@ -196,15 +220,22 @@ const workspaceSlice = createSlice({
         });
 
         builder.addCase(fetchWorkspaces.fulfilled, (state, action) => {
-            state.workspaces = action.payload;
             state.loading = false;
             state.fetchError = false;
 
-            if (action.payload.length > 0) {
+            // Server confirmed nothing changed since our last fetch (304) —
+            // keep the existing workspaces/currentWorkspace exactly as-is,
+            // same "don't touch valid state" behavior as the rejected case.
+            if (action.payload.notModified) return;
+
+            const workspaces = action.payload.workspaces;
+            state.workspaces = workspaces;
+
+            if (workspaces.length > 0) {
                 const savedId = localStorage.getItem("currentWorkspaceId");
-                const found = savedId ? action.payload.find((w) => w.id === savedId) : null;
-                state.currentWorkspace = found || action.payload[0];
-                writeCache(action.payload); // persist fresh data
+                const found = savedId ? workspaces.find((w) => w.id === savedId) : null;
+                state.currentWorkspace = found || workspaces[0];
+                writeCache(workspaces, action.payload.etag); // persist fresh data + revalidation etag
             } else {
                 state.currentWorkspace = null;
                 // User genuinely has no workspaces — clear any stale cache

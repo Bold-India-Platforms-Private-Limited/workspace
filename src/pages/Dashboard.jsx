@@ -14,6 +14,8 @@ const Dashboard = () => {
 
     const { user } = useAuth()
     const currentWorkspace = useSelector((state) => state.workspace?.currentWorkspace || null)
+    const detailLoading = useSelector((state) => state.workspace?.detailLoading)
+    const graphLoading = detailLoading && !Array.isArray(currentWorkspace?.projects)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [attendanceStatus, setAttendanceStatus] = useState(null)
 
@@ -62,18 +64,34 @@ const Dashboard = () => {
                 </div>
             )}
 
-            <StatsGrid />
+            {graphLoading ? (
+                <div className="space-y-6 animate-pulse">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="h-28 rounded-lg bg-gray-200 dark:bg-zinc-800" />
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 h-64 rounded-lg bg-gray-200 dark:bg-zinc-800" />
+                        <div className="h-64 rounded-lg bg-gray-200 dark:bg-zinc-800" />
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <StatsGrid />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-                <div className="lg:col-span-2 space-y-6 sm:space-y-8">
-                    <ProjectOverview />
-                    <RecentActivity />
-                </div>
-                <div className="space-y-6">
-                    {user?.role !== "ADMIN" && <NotificationsCard />}
-                    <TasksSummary />
-                </div>
-            </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+                        <div className="lg:col-span-2 space-y-6 sm:space-y-8">
+                            <ProjectOverview />
+                            <RecentActivity />
+                        </div>
+                        <div className="space-y-6">
+                            {user?.role !== "ADMIN" && <NotificationsCard />}
+                            <TasksSummary />
+                        </div>
+                    </div>
+                </>
+            )}
          <div className="text-sm text-zinc-200 dark:text-zinc-400">Copyright 2026 | riseflake.com</div>
         </div>
     )

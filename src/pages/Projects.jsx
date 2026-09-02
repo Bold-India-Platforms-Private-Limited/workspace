@@ -22,6 +22,9 @@ export default function Projects() {
     const currentWorkspace = useSelector(
         (state) => state?.workspace?.currentWorkspace || null
     );
+    const detailLoading = useSelector((state) => state?.workspace?.detailLoading);
+    // The selected workspace's project graph hasn't arrived yet
+    const graphLoading = detailLoading && !Array.isArray(currentWorkspace?.projects);
 
     const userGroupIds = useMemo(() => {
         if (!user?.id || !currentWorkspace) return new Set();
@@ -122,7 +125,11 @@ export default function Projects() {
 
             {/* Projects Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredProjects.length === 0 ? (
+                {graphLoading ? (
+                    [...Array(6)].map((_, i) => (
+                        <div key={i} className="h-40 rounded-lg bg-gray-200 dark:bg-zinc-800 animate-pulse" />
+                    ))
+                ) : filteredProjects.length === 0 ? (
                     <div className="col-span-full text-center py-16">
                         <div className="w-24 h-24 mx-auto mb-6 bg-gray-200 dark:bg-zinc-800 rounded-full flex items-center justify-center">
                             <FolderOpen className="w-12 h-12 text-gray-400 dark:text-zinc-500" />

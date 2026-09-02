@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { fetchWorkspaces, resetState } from '../features/workspaceSlice'
+import { fetchWorkspaces, fetchWorkspaceDetail, resetState } from '../features/workspaceSlice'
 import { loadTheme } from '../features/themeSlice'
 import { useAuth } from '../auth/AuthContext'
 import { toast } from 'react-hot-toast'
@@ -169,6 +169,14 @@ const Layout = () => {
     // Check NDA status — localStorage-first: zero API cost if already signed
     // Runs once when both user and workspaceId are available
     const currentWorkspaceId = useSelector((state) => state.workspace?.currentWorkspace?.id)
+
+    // Load the heavy project/task/group graph for the SELECTED workspace only.
+    // Fires on first load and on every workspace switch (the id changes).
+    useEffect(() => {
+        if (!isAuthenticated || !user || !currentWorkspaceId) return
+        dispatch(fetchWorkspaceDetail({ getToken, workspaceId: currentWorkspaceId }))
+    }, [isAuthenticated, user, currentWorkspaceId])
+
     useEffect(() => {
         if (!isAuthenticated || !user || !currentWorkspaceId) return
         // Skip admin — NDA is for interns only

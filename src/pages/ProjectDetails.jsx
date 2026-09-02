@@ -21,7 +21,11 @@ export default function ProjectDetail() {
 
     const navigate = useNavigate();
     const currentWorkspace = useSelector((state) => state?.workspace?.currentWorkspace || null);
+    const detailLoading = useSelector((state) => state?.workspace?.detailLoading);
     const projects = currentWorkspace?.projects || [];
+    // The selected workspace's project graph is still loading — don't flash
+    // "Project not found" before the data has even arrived.
+    const graphLoading = detailLoading && !Array.isArray(currentWorkspace?.projects);
 
     const [project, setProject] = useState(null);
     const [tasks, setTasks] = useState([]);
@@ -91,6 +95,16 @@ export default function ProjectDetail() {
             setSendingPM(false);
         }
     };
+
+    if (!project && graphLoading) {
+        return (
+            <div className="max-w-5xl mx-auto space-y-4 animate-pulse p-6">
+                <div className="h-8 w-64 rounded bg-zinc-200 dark:bg-zinc-800" />
+                <div className="h-4 w-96 rounded bg-zinc-200 dark:bg-zinc-800" />
+                <div className="h-64 rounded-lg bg-zinc-200 dark:bg-zinc-800 mt-6" />
+            </div>
+        );
+    }
 
     if (!project) {
         return (

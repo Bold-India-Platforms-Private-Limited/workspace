@@ -1,7 +1,11 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../configs/api";
 
-const CACHE_KEY = "workspaceCache";
+// Lightweight list of workspaces (id / name / image / members) — NO project
+// or task graph. The heavy per-workspace graph lives under DETAIL_KEY_PREFIX
+// and is fetched one workspace at a time via fetchWorkspaceDetail.
+const CACHE_KEY = "workspaceListCache";
+const DETAIL_KEY_PREFIX = "workspaceDetailCache:";
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function readCache() {
@@ -34,6 +38,41 @@ function writeCache(workspaces, etag) {
     } catch { /* quota exceeded - ignore */ }
 }
 
+// --- Per-workspace detail cache (heavy graph) ---
+function readDetailCache(workspaceId) {
+    if (!workspaceId) return null;
+    try {
+        const raw = localStorage.getItem(DETAIL_KEY_PREFIX + workspaceId);
+        if (!raw) return null;
+        const { workspace, timestamp } = JSON.parse(raw);
+        if (Date.now() - timestamp > CACHE_TTL) {
+            localStorage.removeItem(DETAIL_KEY_PREFIX + workspaceId);
+            return null;
+        }
+        return workspace && Array.isArray(workspace.projects) ? workspace : null;
+    } catch {
+        return null;
+    }
+}
+
+function writeDetailCache(workspace) {
+    if (!workspace?.id) return;
+    try {
+        localStorage.setItem(
+            DETAIL_KEY_PREFIX + workspace.id,
+            JSON.stringify({ workspace, timestamp: Date.now() })
+        );
+    } catch { /* quota exceeded - ignore */ }
+}
+
+function clearAllDetailCache() {
+    try {
+        Object.keys(localStorage)
+            .filter((k) => k.startsWith(DETAIL_KEY_PREFIX))
+            .forEach((k) => localStorage.removeItem(k));
+    } catch { /* ignore */ }
+}
+
 // The etag is a candidate for revalidation, independent of the render-cache's
 // 5-minute TTL above — the server (not this TTL) is the source of truth on
 // whether it's still valid, via the If-None-Match / 304 round trip below.
@@ -49,16 +88,36 @@ function readStoredEtag() {
 
 export function clearWorkspaceCache() {
     localStorage.removeItem(CACHE_KEY);
+    clearAllDetailCache();
 }
 
+function savedWorkspaceId() {
+    try {
+        return localStorage.getItem("currentWorkspaceId");
+    } catch {
+        return null;
+    }
+}
+
+// Guarantee `currentWorkspace` always has projects/groups arrays, even when
+// it's a bare light-list stub whose heavy graph hasn't loaded yet. Many
+// consumers do `currentWorkspace.projects.flatMap(...)` without guarding.
+function asCurrent(ws) {
+    if (!ws) return null;
+    return {
+        ...ws,
+        projects: Array.isArray(ws.projects) ? ws.projects : [],
+        groups: Array.isArray(ws.groups) ? ws.groups : [],
+    };
+}
+
+// Pick which workspace is "current" from a light list, preferring a cached
+// heavy detail blob so consumers see projects/tasks immediately on load.
 function selectWorkspace(workspaces) {
     if (!workspaces || workspaces.length === 0) return null;
-    const savedId = localStorage.getItem("currentWorkspaceId");
-    if (savedId) {
-        const found = workspaces.find((w) => w.id === savedId);
-        if (found) return found;
-    }
-    return workspaces[0];
+    const savedId = savedWorkspaceId();
+    const chosen = (savedId && workspaces.find((w) => w.id === savedId)) || workspaces[0];
+    return asCurrent(readDetailCache(chosen.id) || chosen);
 }
 
 // Hydrate from cache for instant render on page load
@@ -69,6 +128,9 @@ const initialState = {
     // Show loading skeleton when there is no valid cached data to display
     loading: !cached,
     fetchError: false,
+    // Heavy per-workspace graph load (fetchWorkspaceDetail)
+    detailLoading: false,
+    detailError: false,
 };
 
 export const fetchWorkspaces = createAsyncThunk(
@@ -99,6 +161,36 @@ export const fetchWorkspaces = createAsyncThunk(
     }
 );
 
+// Fetch the heavy project/task/group graph for ONE workspace — the selected
+// one. This replaces the old behaviour where fetchWorkspaces returned every
+// workspace's full graph at once (which materialised ~the whole DB for admins).
+export const fetchWorkspaceDetail = createAsyncThunk(
+    "workspace/fetchWorkspaceDetail",
+    async ({ getToken, workspaceId }, { rejectWithValue }) => {
+        try {
+            const { data } = await api.get(`/api/workspaces/${workspaceId}`, {
+                headers: { Authorization: `Bearer ${await getToken()}` },
+            });
+            return { workspace: data.workspace };
+        } catch (error) {
+            return rejectWithValue(error?.response?.data?.message || error.message || "Network error");
+        }
+    }
+);
+
+// Merge a freshly-fetched light list entry over the current workspace while
+// keeping any heavy graph (projects/groups) we've already loaded for it.
+function withLoadedGraph(lightWs, existingCurrent) {
+    if (
+        existingCurrent &&
+        existingCurrent.id === lightWs.id &&
+        Array.isArray(existingCurrent.projects)
+    ) {
+        return { ...lightWs, projects: existingCurrent.projects, groups: existingCurrent.groups };
+    }
+    return asCurrent(readDetailCache(lightWs.id) || lightWs);
+}
+
 const workspaceSlice = createSlice({
     name: "workspace",
     initialState,
@@ -108,12 +200,14 @@ const workspaceSlice = createSlice({
         },
         setCurrentWorkspace: (state, action) => {
             localStorage.setItem("currentWorkspaceId", action.payload);
-            state.currentWorkspace = state.workspaces.find((w) => w.id === action.payload);
+            const light = state.workspaces.find((w) => w.id === action.payload) || null;
+            // Show cached heavy data instantly; fetchWorkspaceDetail refreshes it.
+            state.currentWorkspace = asCurrent(readDetailCache(action.payload) || light);
         },
         addWorkspace: (state, action) => {
             state.workspaces.push(action.payload);
             if (state.currentWorkspace?.id !== action.payload.id) {
-                state.currentWorkspace = action.payload;
+                state.currentWorkspace = asCurrent(action.payload);
             }
         },
         updateWorkspace: (state, action) => {
@@ -121,82 +215,96 @@ const workspaceSlice = createSlice({
                 w.id === action.payload.id ? action.payload : w
             );
             if (state.currentWorkspace?.id === action.payload.id) {
-                state.currentWorkspace = action.payload;
+                state.currentWorkspace = asCurrent(action.payload);
             }
         },
         deleteWorkspace: (state, action) => {
             state.workspaces = state.workspaces.filter((w) => w._id !== action.payload);
         },
         addProject: (state, action) => {
-            state.currentWorkspace.projects.push(action.payload);
+            if (state.currentWorkspace) {
+                state.currentWorkspace.projects = (state.currentWorkspace.projects || []).concat(action.payload);
+            }
             state.workspaces = state.workspaces.map((w) =>
-                w.id === state.currentWorkspace.id ? { ...w, projects: w.projects.concat(action.payload) } : w
+                w.id === state.currentWorkspace?.id && Array.isArray(w.projects)
+                    ? { ...w, projects: w.projects.concat(action.payload) }
+                    : w
             );
         },
         addProjectMember: (state, action) => {
             const { projectId, member } = action.payload;
-            state.currentWorkspace.projects = state.currentWorkspace.projects.map((p) => {
-                if (p.id === projectId) {
-                    p.members.push(member);
-                }
-                return p;
-            });
+            if (state.currentWorkspace?.projects) {
+                state.currentWorkspace.projects = state.currentWorkspace.projects.map((p) => {
+                    if (p.id === projectId) {
+                        p.members.push(member);
+                    }
+                    return p;
+                });
+            }
             state.workspaces = state.workspaces.map((w) =>
-                w.id === state.currentWorkspace.id ? {
-                    ...w, projects: w.projects.map((p) =>
-                        p.id === projectId ? { ...p, members: p.members.concat(member) } : p
-                    )
-                } : w
+                w.id === state.currentWorkspace?.id && Array.isArray(w.projects)
+                    ? {
+                        ...w, projects: w.projects.map((p) =>
+                            p.id === projectId ? { ...p, members: p.members.concat(member) } : p
+                        )
+                    } : w
             );
         },
         addTask: (state, action) => {
-            state.currentWorkspace.projects = state.currentWorkspace.projects.map((p) => {
-                if (p.id === action.payload.projectId) {
-                    p.tasks.push(action.payload);
-                }
-                return p;
-            });
+            if (state.currentWorkspace?.projects) {
+                state.currentWorkspace.projects = state.currentWorkspace.projects.map((p) => {
+                    if (p.id === action.payload.projectId) {
+                        p.tasks.push(action.payload);
+                    }
+                    return p;
+                });
+            }
             state.workspaces = state.workspaces.map((w) =>
-                w.id === state.currentWorkspace.id ? {
-                    ...w, projects: w.projects.map((p) =>
-                        p.id === action.payload.projectId ? { ...p, tasks: p.tasks.concat(action.payload) } : p
-                    )
-                } : w
+                w.id === state.currentWorkspace?.id && Array.isArray(w.projects)
+                    ? {
+                        ...w, projects: w.projects.map((p) =>
+                            p.id === action.payload.projectId ? { ...p, tasks: p.tasks.concat(action.payload) } : p
+                        )
+                    } : w
             );
         },
         updateTask: (state, action) => {
-            state.currentWorkspace.projects.map((p) => {
-                if (p.id === action.payload.projectId) {
-                    p.tasks = p.tasks.map((t) =>
-                        t.id === action.payload.id ? action.payload : t
-                    );
-                }
-            });
+            if (state.currentWorkspace?.projects) {
+                state.currentWorkspace.projects.map((p) => {
+                    if (p.id === action.payload.projectId) {
+                        p.tasks = p.tasks.map((t) =>
+                            t.id === action.payload.id ? action.payload : t
+                        );
+                    }
+                });
+            }
             state.workspaces = state.workspaces.map((w) =>
-                w.id === state.currentWorkspace.id ? {
-                    ...w, projects: w.projects.map((p) =>
-                        p.id === action.payload.projectId ? {
-                            ...p, tasks: p.tasks.map((t) =>
-                                t.id === action.payload.id ? action.payload : t
-                            )
-                        } : p
-                    )
-                } : w
+                w.id === state.currentWorkspace?.id && Array.isArray(w.projects)
+                    ? {
+                        ...w, projects: w.projects.map((p) =>
+                            p.id === action.payload.projectId ? {
+                                ...p, tasks: p.tasks.map((t) =>
+                                    t.id === action.payload.id ? action.payload : t
+                                )
+                            } : p
+                        )
+                    } : w
             );
         },
         deleteTask: (state, action) => {
-            state.currentWorkspace.projects.map((p) => {
-                p.tasks = p.tasks.filter((t) => !action.payload.includes(t.id));
-                return p;
-            });
+            if (state.currentWorkspace?.projects) {
+                state.currentWorkspace.projects.map((p) => {
+                    p.tasks = p.tasks.filter((t) => !action.payload.includes(t.id));
+                    return p;
+                });
+            }
             state.workspaces = state.workspaces.map((w) =>
-                w.id === state.currentWorkspace.id ? {
-                    ...w, projects: w.projects.map((p) =>
-                        p.id === action.payload.projectId ? {
+                w.id === state.currentWorkspace?.id && Array.isArray(w.projects)
+                    ? {
+                        ...w, projects: w.projects.map((p) => ({
                             ...p, tasks: p.tasks.filter((t) => !action.payload.includes(t.id))
-                        } : p
-                    )
-                } : w
+                        }))
+                    } : w
             );
         },
         // Called on logout — wipes Redux state so stale data never bleeds into
@@ -206,6 +314,8 @@ const workspaceSlice = createSlice({
             state.currentWorkspace = null;
             state.loading = false;
             state.fetchError = false;
+            state.detailLoading = false;
+            state.detailError = false;
         },
     },
     extraReducers: (builder) => {
@@ -232,15 +342,19 @@ const workspaceSlice = createSlice({
             state.workspaces = workspaces;
 
             if (workspaces.length > 0) {
-                const savedId = localStorage.getItem("currentWorkspaceId");
+                const savedId = savedWorkspaceId();
                 const found = savedId ? workspaces.find((w) => w.id === savedId) : null;
-                state.currentWorkspace = found || workspaces[0];
-                writeCache(workspaces, action.payload.etag); // persist fresh data + revalidation etag
+                const lightCurrent = found || workspaces[0];
+                // Keep any heavy graph we've already loaded for this workspace;
+                // don't clobber currentWorkspace with a bare light stub.
+                state.currentWorkspace = withLoadedGraph(lightCurrent, state.currentWorkspace);
+                writeCache(workspaces, action.payload.etag); // persist fresh list + revalidation etag
             } else {
                 state.currentWorkspace = null;
                 // User genuinely has no workspaces — clear any stale cache
                 // so the next load doesn't try to hydrate from it
-                localStorage.removeItem("workspaceCache");
+                localStorage.removeItem(CACHE_KEY);
+                clearAllDetailCache();
             }
         });
 
@@ -251,6 +365,36 @@ const workspaceSlice = createSlice({
             // Only mark error + stop spinner so the UI can react appropriately.
             state.loading = false;
             state.fetchError = true;
+        });
+
+        builder.addCase(fetchWorkspaceDetail.pending, (state) => {
+            state.detailError = false;
+            // Only show a skeleton when there's no graph to display yet for
+            // the current workspace — otherwise refresh silently in place.
+            state.detailLoading = !Array.isArray(state.currentWorkspace?.projects);
+        });
+
+        builder.addCase(fetchWorkspaceDetail.fulfilled, (state, action) => {
+            state.detailLoading = false;
+            state.detailError = false;
+
+            const ws = action.payload.workspace;
+            if (!ws?.id) return;
+
+            // Guard against a stale response arriving after the user already
+            // switched to another workspace.
+            if (!state.currentWorkspace || state.currentWorkspace.id === ws.id) {
+                state.currentWorkspace = ws;
+            }
+            state.workspaces = state.workspaces.map((w) =>
+                w.id === ws.id ? { ...w, ...ws } : w
+            );
+            writeDetailCache(ws);
+        });
+
+        builder.addCase(fetchWorkspaceDetail.rejected, (state) => {
+            state.detailLoading = false;
+            state.detailError = true;
         });
     },
 });

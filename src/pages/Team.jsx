@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useAuth } from "../auth/AuthContext";
 import api from "../configs/api";
 import toast from "react-hot-toast";
-import { fetchWorkspaces } from "../features/workspaceSlice";
+import { fetchWorkspaceDetail } from "../features/workspaceSlice";
 import { useNavigate } from "react-router-dom";
 import { getSocket } from "../configs/socket";
 import { thumb } from "../utils/cloudinaryUrl";
@@ -384,7 +384,7 @@ const Team = () => {
             setIsGroupModalOpen(false);
             setGroupName("");
             setSelectedMembers(new Set());
-            dispatch(fetchWorkspaces({ getToken }));
+            dispatch(fetchWorkspaceDetail({ getToken, workspaceId: currentWorkspace.id }));
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);
         }
@@ -426,7 +426,7 @@ const Team = () => {
             toast.success("Members removed successfully");
             setIsRemoveModalOpen(false);
             setRemoveSelected(new Set());
-            dispatch(fetchWorkspaces({ getToken }));
+            dispatch(fetchWorkspaceDetail({ getToken, workspaceId: currentWorkspace.id }));
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);
         }
@@ -482,7 +482,7 @@ const Team = () => {
             setEmailSearch("");
             setEmailSearchResult(null);
             setIsEmailSearchModalOpen(false);
-            dispatch(fetchWorkspaces({ getToken }));
+            dispatch(fetchWorkspaceDetail({ getToken, workspaceId: currentWorkspace.id }));
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);
         } finally {
@@ -565,7 +565,7 @@ const Team = () => {
             toast.success(`Created ${groupsToCreate.length} groups successfully!`);
             setIsBulkGenerateModalOpen(false);
             setMembersPerGroup(10);
-            dispatch(fetchWorkspaces({ getToken }));
+            dispatch(fetchWorkspaceDetail({ getToken, workspaceId: currentWorkspace.id }));
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);
         } finally {

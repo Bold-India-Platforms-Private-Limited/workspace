@@ -5,7 +5,7 @@ import { Save, Trash } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { fetchWorkspaces } from "../features/workspaceSlice";
+import { fetchWorkspaceDetail } from "../features/workspaceSlice";
 import api from "../configs/api";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
@@ -75,7 +75,7 @@ export default function ProjectSettings({ project }) {
         toast.loading("Saving...");
         try {
             const { data } = await api.put(`/api/projects`, formData, { headers: { Authorization: `Bearer ${await getToken()}` } });
-            dispatch(fetchWorkspaces({ getToken }));
+            dispatch(fetchWorkspaceDetail({ getToken, workspaceId: currentWorkspace.id }));
             toast.dismissAll();
             toast.success(data.message);
         } catch (error) {
@@ -110,7 +110,7 @@ export default function ProjectSettings({ project }) {
         try {
             toast.loading("Deleting project...");
             await api.delete(`/api/projects/${project.id}`, { headers: { Authorization: `Bearer ${await getToken()}` } });
-            dispatch(fetchWorkspaces({ getToken }));
+            dispatch(fetchWorkspaceDetail({ getToken, workspaceId: currentWorkspace.id }));
             toast.dismissAll();
             toast.success("Project deleted");
             navigate("/projects");

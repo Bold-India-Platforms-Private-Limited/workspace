@@ -4,7 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { nowIST, TIMEZONE } from "../configs/timezone";
-import { fetchWorkspaces } from "../features/workspaceSlice";
+import { fetchWorkspaces, fetchWorkspaceDetail } from "../features/workspaceSlice";
 import { useSearchParams } from "react-router-dom";
 import api from "../configs/api";
 import toast from "react-hot-toast";
@@ -82,6 +82,7 @@ export default function Settings() {
         setIsImporting(true);
         try {
             await api.post(`/api/workspaces/${currentWorkspace.id}/import-projects`, { sourceWorkspaceId });
+            dispatch(fetchWorkspaceDetail({ getToken, workspaceId: currentWorkspace.id }));
             toast.success("Projects imported successfully");
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);

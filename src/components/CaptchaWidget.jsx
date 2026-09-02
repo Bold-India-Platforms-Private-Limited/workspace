@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from "react";
+import { RefreshCw, Info } from "lucide-react";
 
 /**
  * Custom SVG CAPTCHA widget.
@@ -55,23 +56,19 @@ const CaptchaWidget = forwardRef(function CaptchaWidget({ onChange, onReset }, r
 
     return (
         <div className="space-y-2">
-            {/* CAPTCHA image row */}
-            <div className="flex items-center gap-2">
-                <div
-                    className="flex-1 rounded-lg border-2 border-gray-200 dark:border-zinc-700 overflow-hidden bg-[#eef2ff]"
-                    style={{ height: 64, minWidth: 0 }}
-                >
+            <label className="block text-[13px] font-medium text-gray-700 dark:text-zinc-300">Security check</label>
+
+            {/* CAPTCHA image + refresh */}
+            <div className="flex items-stretch gap-2">
+                <div className="flex-1 min-w-0 h-12 rounded-xl border border-gray-200 dark:border-zinc-800 overflow-hidden bg-[#eef2ff] dark:bg-zinc-900">
                     {loading && (
                         <div className="w-full h-full flex items-center justify-center">
-                            <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                            </svg>
+                            <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />
                         </div>
                     )}
                     {error && !loading && (
                         <div className="w-full h-full flex items-center justify-center text-xs text-red-500 px-2 text-center">
-                            Failed to load. Click refresh.
+                            Failed to load — tap refresh
                         </div>
                     )}
                     {image && !loading && !error && (
@@ -90,13 +87,11 @@ const CaptchaWidget = forwardRef(function CaptchaWidget({ onChange, onReset }, r
                     type="button"
                     onClick={fetchCaptcha}
                     disabled={loading}
-                    title="Get a new CAPTCHA"
-                    className="shrink-0 p-2 rounded-lg border-2 border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-700 text-gray-500 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-40 transition"
+                    aria-label="Get a new image"
+                    title="Get a new image"
+                    className="group shrink-0 h-12 w-12 grid place-items-center rounded-xl border border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-500/50 hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition"
                 >
-                    <svg className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M4 4v5h.582M20 20v-5h-.581M5.523 19A9 9 0 1118 6.5" />
-                    </svg>
+                    <RefreshCw className={`w-[18px] h-[18px] transition-transform duration-300 ${loading ? "animate-spin" : "group-hover:-rotate-90"}`} />
                 </button>
             </div>
 
@@ -109,16 +104,13 @@ const CaptchaWidget = forwardRef(function CaptchaWidget({ onChange, onReset }, r
                 autoComplete="off"
                 spellCheck={false}
                 maxLength={6}
-                style={{ backgroundColor: "white", border: "2px solid #e5e7eb", color: "#111827", letterSpacing: "0.2em" }}
-                className="w-full rounded-xl px-4 py-2.5 text-sm font-mono font-semibold uppercase focus:outline-none focus:border-blue-500 transition placeholder-gray-400 placeholder:normal-case placeholder:tracking-normal placeholder:font-normal"
+                className="w-full h-12 rounded-xl border border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 text-gray-900 dark:text-zinc-100 px-4 text-[15px] font-mono font-semibold uppercase tracking-[0.25em] focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition placeholder:text-gray-400 dark:placeholder:text-zinc-600 placeholder:normal-case placeholder:tracking-normal placeholder:font-sans placeholder:font-normal"
             />
 
             {/* Hint */}
-            <p className="text-[11px] text-gray-400 dark:text-zinc-500 flex items-center gap-1">
-                <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
-                </svg>
-                Not readable? Click the refresh icon for a new one. Case-insensitive.
+            <p className="text-[11px] text-gray-400 dark:text-zinc-500 flex items-center gap-1.5">
+                <Info className="w-3 h-3 shrink-0" />
+                Not readable? Tap refresh for a new one. Case-insensitive.
             </p>
         </div>
     );

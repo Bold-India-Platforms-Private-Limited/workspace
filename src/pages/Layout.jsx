@@ -8,10 +8,12 @@ import { loadTheme } from '../features/themeSlice'
 import { useAuth } from '../auth/AuthContext'
 import { toast } from 'react-hot-toast'
 import CreateWorkspaceDialog from '../components/CreateWorkspaceDialog'
+import BottomNav from '../components/BottomNav'
 import NoticesBanner from '../components/NoticesBanner'
 import MobileModal from '../components/MobileModal'
 import NdaModal, { ndaCacheKey, ndaDismissKey } from '../components/NdaModal'
 import CaptchaWidget from '../components/CaptchaWidget'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck } from 'lucide-react'
 
 const SkeletonPulse = ({ className = "" }) => (
     <div className={`animate-pulse rounded bg-zinc-200 dark:bg-zinc-800 ${className}`} />
@@ -122,6 +124,7 @@ const Layout = () => {
     const { workspaces, loading, fetchError } = useSelector((state) => state.workspace)
     const dispatch = useDispatch()
     const [formData, setFormData] = useState({ email: "", password: "" })
+    const [showPassword, setShowPassword] = useState(false)
     const [isLoggingIn, setIsLoggingIn] = useState(false)
     const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false)
     const [showMobileModal, setShowMobileModal] = useState(false)
@@ -290,138 +293,105 @@ const Layout = () => {
     // Modern Light Blue Login Screen
     if (!user) {
         return (
-            <div className="relative flex justify-center items-center min-h-screen overflow-hidden bg-white dark:from-zinc-950 dark:via-blue-950/20 dark:to-purple-950/10">
-                {/* Subtle animated shapes - light blue theme */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    {/* Top right circle */}
-                    <div
-                        className="absolute w-96 h-96 bg-blue-500/5 dark:from-blue-500/20 dark:to-purple-500/20 rounded-full blur-3xl"
-                        style={{
-                            top: '-10%',
-                            right: '-10%',
-                            animation: 'float 15s ease-in-out infinite',
-                        }}
-                    />
-                    {/* Bottom left circle */}
-                    <div
-                        className="absolute w-80 h-80 bg-blue-400/5 dark:from-purple-500/20 dark:to-pink-500/20 rounded-full blur-3xl"
-                        style={{
-                            bottom: '-10%',
-                            left: '-5%',
-                            animation: 'float 12s ease-in-out infinite reverse',
-                        }}
-                    />
-                    {/* Grid pattern */}
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(59_130_246/0.05)_1px,transparent_1px)] dark:bg-[radial-gradient(circle_at_1px_1px,rgb(59_130_246/0.1)_1px,transparent_1px)] [background-size:32px_32px]" />
-                </div>
-
-                {/* Clean Login Card */}
-                <div className="relative z-10 w-full max-w-md mx-4 sm:mx-auto">
-                    {/* Logo Section */}
-                    <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center w-16 h-16 sm:w-18 sm:h-18 mb-5 rounded-2xl bg-blue-600 dark:bg-gradient-to-br dark:from-blue-500 dark:to-purple-600 shadow-lg shadow-blue-600/20 dark:shadow-blue-500/30 transition-transform hover:scale-105">
-                            <svg className="w-8 h-8 sm:w-9 sm:h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 via-white to-white dark:from-zinc-950 dark:via-zinc-950 dark:to-black">
+                <div className="flex-1 flex flex-col justify-center w-full max-w-sm mx-auto px-6 pt-12 pb-8">
+                    {/* Brand-neutral mark */}
+                    <div className="mb-9">
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 dark:bg-blue-500 shadow-lg shadow-blue-600/25">
+                            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
                         </div>
-                        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                            Welcome Back
-                        </h1>
-                        <p className="text-sm text-gray-600 dark:text-zinc-400">Sign in to continue</p>
+                        <h1 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Welcome back</h1>
+                        <p className="mt-1.5 text-sm text-gray-500 dark:text-zinc-400">Sign in to your account to continue</p>
                     </div>
 
-                    {/* Clean White Card */}
-                    <form
-                        onSubmit={handleLogin}
-                        className="bg-white dark:bg-zinc-900/70 dark:border dark:border-zinc-700/50 rounded-3xl p-6 sm:p-8 shadow-xl shadow-blue-600/5 dark:shadow-black/30 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-600/10"
-                    >
-                        <div className="space-y-5">
-                            {/* Email Input */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-gray-700 dark:text-zinc-300 flex items-center gap-2">
-                                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                                    </svg>
-                                    Email
-                                </label>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        {/* Email */}
+                        <div>
+                            <label className="block text-[13px] font-medium text-gray-700 dark:text-zinc-300 mb-1.5">Email</label>
+                            <div className="relative">
+                                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500 pointer-events-none" />
                                 <input
                                     type="email"
+                                    inputMode="email"
+                                    autoComplete="email"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    className="w-full rounded-xl border-2 border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/50 dark:backdrop-blur-sm text-gray-900 dark:text-zinc-100 text-sm py-3 px-4 focus:outline-none focus:border-blue-600 dark:focus:ring-2 dark:focus:ring-blue-500/50 dark:focus:border-transparent transition-all placeholder:text-gray-400 dark:placeholder:text-zinc-500 hover:border-gray-300"
+                                    className="w-full h-12 rounded-xl border border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 text-[15px] text-gray-900 dark:text-zinc-100 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 dark:focus:border-blue-500 transition placeholder:text-gray-400 dark:placeholder:text-zinc-600"
                                     placeholder="you@example.com"
                                     required
                                 />
                             </div>
+                        </div>
 
-                            {/* Password Input */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-gray-700 dark:text-zinc-300 flex items-center gap-2">
-                                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
-                                    Password
-                                </label>
+                        {/* Password */}
+                        <div>
+                            <label className="block text-[13px] font-medium text-gray-700 dark:text-zinc-300 mb-1.5">Password</label>
+                            <div className="relative">
+                                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500 pointer-events-none" />
                                 <input
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    autoComplete="current-password"
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    className="w-full rounded-xl border-2 border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/50 dark:backdrop-blur-sm text-gray-900 dark:text-zinc-100 text-sm py-3 px-4 focus:outline-none focus:border-blue-600 dark:focus:ring-2 dark:focus:ring-blue-500/50 dark:focus:border-transparent transition-all placeholder:text-gray-400 dark:placeholder:text-zinc-500 hover:border-gray-300"
-                                    placeholder="••••••••"
+                                    className="w-full h-12 rounded-xl border border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 text-[15px] text-gray-900 dark:text-zinc-100 pl-10 pr-11 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 dark:focus:border-blue-500 transition placeholder:text-gray-400 dark:placeholder:text-zinc-600"
+                                    placeholder="Enter your password"
                                     required
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword((v) => !v)}
+                                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300"
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
                             </div>
-
-                            {/* Custom CAPTCHA for login */}
-                            <CaptchaWidget
-                                ref={loginCaptchaRef}
-                                onChange={setLoginCaptcha}
-                            />
-
-                            {/* Sign In Button */}
-                            <button
-                                type="submit"
-                                disabled={isLoggingIn || loginCaptcha.answer.length < 6}
-                                className="group relative w-full py-3.5 rounded-xl bg-blue-600 dark:bg-gradient-to-r dark:from-blue-500 dark:via-purple-500 dark:to-pink-500 text-white text-sm font-semibold shadow-lg shadow-blue-600/30 dark:shadow-blue-500/30 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/40 dark:hover:shadow-blue-500/60 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-                            >
-                                <span className="flex items-center justify-center gap-2">
-                                    {isLoggingIn ? (
-                                        <>
-                                            <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                            </svg>
-                                            Signing in...
-                                        </>
-                                    ) : (
-                                        <>
-                                            Sign In
-                                            <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                            </svg>
-                                        </>
-                                    )}
-                                </span>
-                            </button>
                         </div>
 
-                        {/* Footer */}
-                        <div className="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-zinc-400 mt-6">
-                            <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-blue-600 dark:text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
-                                <span>Secure & Encrypted</span>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowForgot(true)}
-                                className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-                            >
-                                Forgot password?
-                            </button>
-                        </div>
+                        {/* Custom CAPTCHA for login */}
+                        <CaptchaWidget
+                            ref={loginCaptchaRef}
+                            onChange={setLoginCaptcha}
+                        />
+
+                        {/* Sign In Button */}
+                        <button
+                            type="submit"
+                            disabled={isLoggingIn || loginCaptcha.answer.length < 6}
+                            className="w-full h-12 mt-1 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-[15px] font-semibold shadow-lg shadow-blue-600/25 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                        >
+                            {isLoggingIn ? (
+                                <>
+                                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Signing in…
+                                </>
+                            ) : (
+                                <>
+                                    Sign in
+                                    <ArrowRight className="w-4 h-4" />
+                                </>
+                            )}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowForgot(true)}
+                            className="w-full text-center text-sm font-medium text-blue-600 dark:text-blue-400 py-1.5"
+                        >
+                            Forgot password?
+                        </button>
                     </form>
+                </div>
+
+                {/* Footer */}
+                <div className="pb-[calc(1.5rem+env(safe-area-inset-bottom))] flex items-center justify-center gap-1.5 text-xs text-gray-400 dark:text-zinc-500">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Secure &amp; encrypted connection</span>
                 </div>
 
                 {/* ── Forgot password modal ── */}
@@ -544,12 +514,6 @@ const Layout = () => {
                     </div>
                 )}
 
-                <style>{`
-                    @keyframes float {
-                        0%, 100% { transform: translateY(0px) translateX(0px); }
-                        50% { transform: translateY(-20px) translateX(10px); }
-                    }
-                `}</style>
             </div>
         )
     }
@@ -567,7 +531,7 @@ const Layout = () => {
     // Case 1 — Loading state: show skeleton inside the real layout shell
     if (loading && workspaces.length === 0) {
         return (
-            <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
+            <div className="flex h-screen overflow-hidden bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
                 {/* Sidebar skeleton */}
                 <div className="z-10 bg-white dark:bg-zinc-900 w-68 min-w-68 max-w-68 flex-col h-screen border-r border-gray-200 dark:border-zinc-800 max-sm:hidden flex">
                     <div className="p-4 space-y-3">
@@ -587,7 +551,7 @@ const Layout = () => {
                     </div>
                 </div>
                 {/* Main content */}
-                <div className="flex-1 flex flex-col h-screen">
+                <div className="flex-1 min-h-0 flex flex-col h-screen">
                     {/* Navbar skeleton */}
                     <div className="w-full bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 px-6 xl:px-16 py-3">
                         <div className="flex items-center justify-between max-w-6xl mx-auto">
@@ -686,7 +650,7 @@ const Layout = () => {
 
     // Main Layout
     return (
-        <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
+        <div className="flex h-screen overflow-hidden bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
             {showMobileModal && <MobileModal onSaved={() => setShowMobileModal(false)} />}
             {showNdaModal && pathname === '/' && (
                 <NdaModal
@@ -697,13 +661,14 @@ const Layout = () => {
             <Sidebar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
             <div className="flex-1 flex flex-col h-screen">
                 <Navbar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-                <div className="flex-1 flex flex-col h-full overflow-y-scroll">
+                <div className="flex-1 min-h-0 flex flex-col overflow-y-scroll overscroll-contain">
                     <NoticesBanner />
-                    <div className="flex-1 p-4 sm:p-6 xl:p-10 xl:px-16">
+                    <div className="flex-1 p-4 pb-24 sm:p-6 sm:pb-6 xl:p-10 xl:px-16">
                         <Outlet />
                     </div>
                 </div>
             </div>
+            <BottomNav />
         </div>
     )
 }

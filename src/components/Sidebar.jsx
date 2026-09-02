@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import WorkspaceDropdown from './WorkspaceDropdown'
-import { FolderOpenIcon, LayoutDashboardIcon, MoonIcon, SettingsIcon, SunIcon, UsersIcon, CalendarIcon, Mail, ClipboardList, CalendarDays, CalendarRange, FolderUp, ImageIcon, ScrollText, FileText, RefreshCw, MessageSquare } from 'lucide-react'
+import { RefreshCw, X } from 'lucide-react'
 import MyTasksSidebar from './MyTasksSidebar'
 import ProjectSidebar from './ProjectsSidebar'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { getNavItems } from '../configs/navItems'
 
 // Cosmetic-only "last updated" label — picks a random elapsed time on a
 // timer. Purely decorative, no real sync timestamp behind it.
@@ -20,6 +21,7 @@ const randomAgoLabel = () => {
 const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
 
     const { user } = useAuth();
+    const { pathname } = useLocation();
     const [lastUpdatedLabel, setLastUpdatedLabel] = useState(randomAgoLabel);
 
     useEffect(() => {
@@ -27,24 +29,22 @@ const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
         return () => clearInterval(interval);
     }, []);
 
-    const menuItems = [
-        { name: 'Dashboard', href: '/', icon: LayoutDashboardIcon },
-        { name: 'Projects', href: '/projects', icon: FolderOpenIcon },
-        ...(user?.role === 'ADMIN' ? [{ name: 'Team', href: '/team', icon: UsersIcon }] : []),
-        { name: user?.role === 'ADMIN' ? 'Groups' : 'Team Group', href: '/groups', icon: UsersIcon },
-        { name: 'Attendance', href: '/attendance', icon: CalendarIcon },
-        { name: 'Calendar', href: '/calendar', icon: CalendarRange },
-        { name: 'Standup', href: '/standup', icon: ClipboardList },
-        { name: 'Leave / WFH', href: '/leave', icon: CalendarDays },
-        { name: 'Submission', href: '/submission', icon: FolderUp },
-        ...(user?.role === 'ADMIN' ? [{ name: 'Email Monitor', href: '/email-monitor', icon: Mail }] : []),
-        ...(user?.role === 'ADMIN' ? [{ name: 'Image Manager', href: '/attendance-images', icon: ImageIcon }] : []),
-        ...(user?.role === 'ADMIN' ? [{ name: 'Candidate Teams', href: '/candidate-teams', icon: MessageSquare }] : []),
-        { name: 'Terms & Conditions', href: '/terms', icon: FileText },
-        { name: 'NDA Agreement', href: '/terms-nda', icon: ScrollText },
-    ]
+    const menuItems = getNavItems(user?.role)
 
     const sidebarRef = useRef(null);
+
+    // Close the mobile drawer after navigating (native-app behaviour)
+    useEffect(() => { setIsSidebarOpen(false); }, [pathname, setIsSidebarOpen]);
+
+    // Lock body scroll while the mobile drawer is open
+    useEffect(() => {
+        if (!isSidebarOpen) return;
+        const prev = document.body.style.overflow;
+        if (window.matchMedia('(max-width: 639px)').matches) {
+            document.body.style.overflow = 'hidden';
+        }
+        return () => { document.body.style.overflow = prev; };
+    }, [isSidebarOpen]);
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -57,36 +57,56 @@ const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
     }, [setIsSidebarOpen]);
 
     return (
-        <div ref={sidebarRef} className={`z-10 bg-white dark:bg-zinc-900 w-68 min-w-68 max-w-68 flex flex-col h-screen border-r border-gray-200 dark:border-zinc-800 max-sm:absolute transition-all ${isSidebarOpen ? 'left-0' : '-left-full'} `} >
-            <WorkspaceDropdown />
-            <hr className='border-gray-200 dark:border-zinc-800' />
-            <div className='flex-1 overflow-y-scroll no-scrollbar flex flex-col'>
-                <div>
-                    <div className='p-4'>
-                        {menuItems.map((item) => (
-                            <NavLink to={item.href} key={item.name} className={({ isActive }) => `flex items-center gap-3 py-2 px-4 text-gray-800 dark:text-zinc-100 cursor-pointer rounded transition-all  ${isActive ? 'bg-gray-100 dark:bg-zinc-900 dark:bg-gradient-to-br dark:from-zinc-800 dark:to-zinc-800/50  dark:ring-zinc-800' : 'hover:bg-gray-50 dark:hover:bg-zinc-800/60'}`} >
-                                <item.icon size={16} />
-                                <p className='text-sm truncate'>{item.name}</p>
-                            </NavLink>
-                        ))}
-                        <NavLink to="/settings" className='flex w-full items-center gap-3 py-2 px-4 text-gray-800 dark:text-zinc-100 cursor-pointer rounded hover:bg-gray-50 dark:hover:bg-zinc-800/60 transition-all'>
-                            <SettingsIcon size={16} />
-                            <p className='text-sm truncate'>Settings</p>
-                        </NavLink>
+        <>
+            {/* Scrim — mobile only */}
+            <div
+                onClick={() => setIsSidebarOpen(false)}
+                className={`sm:hidden fixed inset-0 z-[45] bg-black/50 backdrop-blur-[2px] transition-opacity duration-300 ${
+                    isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
+            />
+
+            <div
+                ref={sidebarRef}
+                className={`fixed inset-y-0 left-0 z-50 flex flex-col h-screen bg-white dark:bg-zinc-900
+                    w-[84%] max-w-xs rounded-r-2xl shadow-2xl
+                    transition-transform duration-300 ease-out
+                    ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+                    sm:static sm:z-10 sm:w-68 sm:min-w-68 sm:max-w-68 sm:translate-x-0
+                    sm:rounded-none sm:shadow-none sm:border-r sm:border-gray-200 sm:dark:border-zinc-800`}
+            >
+                {/* Mobile close button */}
+                <button
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="sm:hidden absolute top-3 right-3 z-10 p-1.5 rounded-lg text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    aria-label="Close menu"
+                >
+                    <X size={18} />
+                </button>
+
+                <WorkspaceDropdown />
+                <hr className='border-gray-200 dark:border-zinc-800' />
+                <div className='flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar flex flex-col'>
+                    <div>
+                        <div className='p-3 sm:p-4'>
+                            {menuItems.map((item) => (
+                                <NavLink to={item.href} key={item.name} end={item.href === '/'} className={({ isActive }) => `flex items-center gap-4 sm:gap-3 py-3 sm:py-2 px-4 text-gray-800 dark:text-zinc-100 cursor-pointer rounded-xl sm:rounded transition-all ${isActive ? 'bg-blue-50 text-blue-700 dark:bg-zinc-800 dark:text-white dark:bg-gradient-to-br dark:from-zinc-800 dark:to-zinc-800/50' : 'hover:bg-gray-50 dark:hover:bg-zinc-800/60 active:bg-gray-100 dark:active:bg-zinc-800'}`} >
+                                    <item.icon className="size-[22px] sm:size-4 shrink-0" strokeWidth={1.9} />
+                                    <p className='text-[15px] sm:text-sm truncate'>{item.name}</p>
+                                </NavLink>
+                            ))}
+                        </div>
+                        <MyTasksSidebar />
+                        <ProjectSidebar />
                     </div>
-                    <MyTasksSidebar />
-                    <ProjectSidebar />
                 </div>
 
-
+                <div className='px-4 py-3 border-t border-gray-200 dark:border-zinc-800 flex items-center gap-2 text-zinc-400 dark:text-zinc-500 shrink-0'>
+                    <RefreshCw size={12} />
+                    <p className='text-xs truncate'>Last updated {lastUpdatedLabel}</p>
+                </div>
             </div>
-
-            <div className='px-4 py-3 border-t border-gray-200 dark:border-zinc-800 flex items-center gap-2 text-zinc-400 dark:text-zinc-500 shrink-0'>
-                <RefreshCw size={12} />
-                <p className='text-xs truncate'>Last updated {lastUpdatedLabel}</p>
-            </div>
-
-        </div>
+        </>
     )
 }
 

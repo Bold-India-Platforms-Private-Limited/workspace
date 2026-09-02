@@ -92,7 +92,7 @@ const Dashboard = () => {
                     </div>
                 </>
             )}
-         <div className="text-sm text-zinc-200 dark:text-zinc-400">Copyright 2026 | riseflake.com</div>
+         <div className="text-sm text-zinc-200 dark:text-zinc-400">Copyright 2026 | validstep.com</div>
         </div>
     )
 }

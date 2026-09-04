@@ -4,8 +4,9 @@ import toast from "react-hot-toast";
 import {
     Plus, Trash2, ExternalLink, FileText, FileSpreadsheet,
     Presentation, Film, File, X, Loader2, FolderOpen,
-    Link2, Eye, Tag, Search, SlidersHorizontal,
+    Link2, Eye, Tag, Search, SlidersHorizontal, Database, Folder,
 } from "lucide-react";
+import { FilePreviewModal, FileRow, copyLink } from "./FilePreview";
 
 const API = import.meta.env.VITE_BASEURL;
 
@@ -69,24 +70,43 @@ function getDocMeta(url = "") {
 // ── Add Document modal ────────────────────────────────────────────────────────
 function AddDocModal({ onClose, onAdded, projectId }) {
     const { getToken } = useAuth();
+    const [mode,   setMode]   = useState("link");   // "link" | "dataset"
     const [form,   setForm]   = useState({ title: "", driveLink: "", description: "" });
     const [tags,   setTags]   = useState([]);
     const [saving, setSaving] = useState(false);
     const [error,  setError]  = useState("");
+    const [folders, setFolders] = useState(null);   // null = not loaded yet
+    const [folderId, setFolderId] = useState("");
 
     const toggleTag = (val) =>
         setTags(prev => prev.includes(val) ? prev.filter(t => t !== val) : prev.length < 5 ? [...prev, val] : prev);
 
+    useEffect(() => {
+        if (mode !== "dataset" || folders !== null) return;
+        (async () => {
+            try {
+                const token = await getToken();
+                const res = await fetch(`${API}/api/datasets`, { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                setFolders(res.ok ? (data.folders || []) : []);
+            } catch { setFolders([]); }
+        })();
+    }, [mode, folders, getToken]);
+
     const submit = async (e) => {
         e.preventDefault();
         setError("");
+        if (mode === "dataset" && !folderId) { setError("Pick a dataset folder"); return; }
         setSaving(true);
         try {
             const token = await getToken();
+            const body = mode === "dataset"
+                ? { kind: "dataset", title: form.title, description: form.description, tags, datasetFolderId: folderId }
+                : { kind: "link", ...form, tags };
             const res = await fetch(`${API}/api/projects/${projectId}/documents`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ ...form, tags }),
+                body: JSON.stringify(body),
             });
             const data = await res.json();
             if (!res.ok) { setError(data.message || "Failed to add"); return; }
@@ -100,6 +120,10 @@ function AddDocModal({ onClose, onAdded, projectId }) {
         }
     };
 
+    const tabCls = (active) => `flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition ${
+        active ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700"
+    }`;
+
     return (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
             <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -110,7 +134,7 @@ function AddDocModal({ onClose, onAdded, projectId }) {
                     </div>
                     <div className="flex-1">
                         <h3 className="font-bold text-zinc-800 dark:text-zinc-100 text-base">Add Document</h3>
-                        <p className="text-xs text-zinc-400">Google Drive, Docs, Sheets, Slides, or any link</p>
+                        <p className="text-xs text-zinc-400">A link, or a Dataset Storage folder</p>
                     </div>
                     <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
                         <X size={16} />
@@ -118,6 +142,16 @@ function AddDocModal({ onClose, onAdded, projectId }) {
                 </div>
 
                 <form onSubmit={submit} className="p-6 space-y-4">
+                    {/* Mode tabs */}
+                    <div className="flex gap-1 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800">
+                        <button type="button" onClick={() => { setMode("link"); setError(""); }} className={tabCls(mode === "link")}>
+                            <Link2 size={13} /> Link
+                        </button>
+                        <button type="button" onClick={() => { setMode("dataset"); setError(""); }} className={tabCls(mode === "dataset")}>
+                            <Database size={13} /> Dataset Folder
+                        </button>
+                    </div>
+
                     {/* Title */}
                     <div>
                         <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide block mb-1.5">
@@ -134,24 +168,54 @@ function AddDocModal({ onClose, onAdded, projectId }) {
                         />
                     </div>
 
-                    {/* Drive link */}
-                    <div>
-                        <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide block mb-1.5">
-                            Google Drive Link <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                            <Link2 size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-                            <input
-                                type="url"
-                                value={form.driveLink}
-                                onChange={e => setForm(f => ({ ...f, driveLink: e.target.value }))}
-                                placeholder="https://drive.google.com/…"
-                                required
-                                style={{ backgroundColor: "white", border: "1.5px solid #e5e7eb", color: "#111827" }}
-                                className="w-full rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 transition placeholder-gray-400"
-                            />
+                    {/* Drive link — link mode */}
+                    {mode === "link" && (
+                        <div>
+                            <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide block mb-1.5">
+                                Link <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                                <Link2 size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                                <input
+                                    type="url"
+                                    value={form.driveLink}
+                                    onChange={e => setForm(f => ({ ...f, driveLink: e.target.value }))}
+                                    placeholder="https://drive.google.com/… or any file URL"
+                                    required
+                                    style={{ backgroundColor: "white", border: "1.5px solid #e5e7eb", color: "#111827" }}
+                                    className="w-full rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 transition placeholder-gray-400"
+                                />
+                            </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* Dataset folder — dataset mode */}
+                    {mode === "dataset" && (
+                        <div>
+                            <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide block mb-1.5">
+                                Dataset folder <span className="text-red-500">*</span>
+                            </label>
+                            {folders === null ? (
+                                <div className="flex items-center gap-2 text-xs text-zinc-400 py-2"><Loader2 size={13} className="animate-spin" /> Loading folders…</div>
+                            ) : folders.length === 0 ? (
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 py-2">
+                                    No dataset folders yet. Create one in <span className="font-semibold">Dataset Storage</span> first.
+                                </p>
+                            ) : (
+                                <select
+                                    value={folderId}
+                                    onChange={e => setFolderId(e.target.value)}
+                                    required
+                                    className="w-full rounded-xl px-3.5 py-2.5 text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                >
+                                    <option value="">Select a folder…</option>
+                                    {folders.map(f => (
+                                        <option key={f.id} value={f.id}>{f.name} ({f.fileCount} file{f.fileCount !== 1 ? "s" : ""})</option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+                    )}
 
                     {/* Tags */}
                     <div>
@@ -363,6 +427,24 @@ function DocCard({ doc, isAdmin, onDelete, onView }) {
                     </div>
                 )}
 
+                {/* Primary actions */}
+                <div className="flex items-center gap-2 mb-3">
+                    <a
+                        href={doc.driveLink} target="_blank" rel="noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="flex-1 inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition shadow-sm shadow-blue-200 dark:shadow-none"
+                    >
+                        <ExternalLink size={15} /> View in new tab
+                    </a>
+                    <button
+                        onClick={e => { e.stopPropagation(); onView(doc); }}
+                        className="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-blue-600 hover:border-blue-300 dark:hover:border-blue-500/50 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition shrink-0"
+                        title="Quick preview"
+                    >
+                        <Eye size={16} />
+                    </button>
+                </div>
+
                 {/* Footer */}
                 <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-800">
                     <div className="flex items-center gap-1.5">
@@ -383,6 +465,96 @@ function DocCard({ doc, isAdmin, onDelete, onView }) {
     );
 }
 
+// ── Dataset-folder document: card + files modal ───────────────────────────────
+function DatasetDocCard({ doc, isAdmin, onDelete, onOpen }) {
+    const [deleting, setDeleting] = useState(false);
+    const count = doc.datasetFolder?.files?.length ?? 0;
+    return (
+        <div
+            className="group relative bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800 rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+            onClick={() => onOpen(doc)}
+        >
+            <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 to-teal-500" />
+            <div className="p-4">
+                <div className="flex items-start gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shrink-0 shadow-sm">
+                        <Database size={18} className="text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm text-zinc-800 dark:text-zinc-100 leading-snug line-clamp-2">{doc.title}</p>
+                        <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                            Dataset · {count} file{count !== 1 ? "s" : ""}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button onClick={e => { e.stopPropagation(); onOpen(doc); }} className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition" title="Open">
+                            <FolderOpen size={13} />
+                        </button>
+                        {isAdmin && (
+                            <button onClick={async e => { e.stopPropagation(); if (!confirm(`Remove "${doc.title}" from this project? (The folder stays in Dataset Storage.)`)) return; setDeleting(true); await onDelete(doc.id); }}
+                                disabled={deleting}
+                                className="p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 disabled:opacity-40 transition" title="Remove">
+                                {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            </button>
+                        )}
+                    </div>
+                </div>
+                {doc.description && <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mb-3">{doc.description}</p>}
+                {doc.tags?.length > 0 && <div className="flex flex-wrap gap-1.5 mb-3">{doc.tags.map(t => <LabelChip key={t} value={t} />)}</div>}
+
+                {/* Primary action */}
+                <button
+                    onClick={e => { e.stopPropagation(); onOpen(doc); }}
+                    className="w-full inline-flex items-center justify-center gap-2 h-10 mb-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition shadow-sm shadow-emerald-200 dark:shadow-none"
+                >
+                    <FolderOpen size={15} /> View {count} file{count !== 1 ? "s" : ""}
+                </button>
+
+                <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate flex items-center gap-1">
+                        <Folder size={11} /> {doc.datasetFolder?.name || "Folder"}
+                    </span>
+                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                        {new Date(doc.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function DatasetFolderModal({ doc, onClose }) {
+    const [preview, setPreview] = useState(null);
+    const files = doc.datasetFolder?.files || [];
+    return (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+                        <Database size={16} className="text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-zinc-800 dark:text-zinc-100 text-sm truncate">{doc.title}</h3>
+                        <p className="text-[11px] text-zinc-400 truncate">{doc.datasetFolder?.name} · {files.length} file{files.length !== 1 ? "s" : ""}</p>
+                    </div>
+                    {files.length > 0 && (
+                        <button onClick={() => copyLink(files.map(f => f.url).join("\n"))} className="p-2 rounded-lg text-zinc-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30" title="Copy all links">
+                            <Link2 size={15} />
+                        </button>
+                    )}
+                    <button onClick={onClose} className="p-2 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"><X size={15} /></button>
+                </div>
+                <div className="p-4 overflow-y-auto space-y-2">
+                    {files.length === 0
+                        ? <p className="text-sm text-zinc-400 text-center py-8">This folder has no files yet.</p>
+                        : files.map(f => <FileRow key={f.id} file={f} onPreview={setPreview} />)}
+                </div>
+            </div>
+            {preview && <FilePreviewModal file={preview} onClose={() => setPreview(null)} />}
+        </div>
+    );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function ProjectDocuments({ projectId }) {
     const { getToken, user } = useAuth();
@@ -391,7 +563,8 @@ export default function ProjectDocuments({ projectId }) {
     const [docs,       setDocs]       = useState([]);
     const [loading,    setLoading]    = useState(true);
     const [showAdd,    setShowAdd]    = useState(false);
-    const [viewingDoc, setViewingDoc] = useState(null);
+    const [viewingDoc, setViewingDoc] = useState(null);   // link docs → ViewerModal
+    const [openFolder, setOpenFolder] = useState(null);   // dataset docs → DatasetFolderModal
     const [search,     setSearch]     = useState("");
     const [filterTag,  setFilterTag]  = useState("");
 
@@ -551,13 +724,16 @@ export default function ProjectDocuments({ projectId }) {
             {!loading && filtered.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filtered.map(doc => (
-                        <DocCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={handleDelete} onView={setViewingDoc} />
+                        doc.kind === "dataset"
+                            ? <DatasetDocCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={handleDelete} onOpen={setOpenFolder} />
+                            : <DocCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={handleDelete} onView={setViewingDoc} />
                     ))}
                 </div>
             )}
 
             {showAdd    && <AddDocModal projectId={projectId} onClose={() => setShowAdd(false)} onAdded={handleAdded} />}
             {viewingDoc && <ViewerModal doc={viewingDoc} onClose={() => setViewingDoc(null)} />}
+            {openFolder && <DatasetFolderModal doc={openFolder} onClose={() => setOpenFolder(null)} />}
         </div>
     );
 }

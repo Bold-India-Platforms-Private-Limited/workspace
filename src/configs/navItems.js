@@ -1,7 +1,7 @@
 import {
     LayoutDashboardIcon, FolderOpenIcon, UsersIcon, CalendarIcon, CalendarRange,
     ClipboardList, CalendarDays, FolderUp, Mail, ImageIcon, MessageSquare,
-    FileText, ScrollText, SettingsIcon,
+    FileText, ScrollText, SettingsIcon, Database,
 } from 'lucide-react';
 
 // Single source of truth for the app's primary navigation. Consumed by both
@@ -20,6 +20,7 @@ export function getNavItems(role) {
         { name: 'Submission', href: '/submission', icon: FolderUp },
         ...(isAdmin ? [{ name: 'Email Monitor', href: '/email-monitor', icon: Mail }] : []),
         ...(isAdmin ? [{ name: 'Image Manager', href: '/attendance-images', icon: ImageIcon }] : []),
+        ...(isAdmin ? [{ name: 'Dataset Storage', href: '/dataset-storage', icon: Database }] : []),
         ...(isAdmin ? [{ name: 'Candidate Teams', href: '/candidate-teams', icon: MessageSquare }] : []),
         { name: 'Terms & Conditions', href: '/terms', icon: FileText },
         { name: 'NDA Agreement', href: '/terms-nda', icon: ScrollText },

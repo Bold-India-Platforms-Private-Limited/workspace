@@ -8,6 +8,7 @@ import RecentActivity from '../components/RecentActivity'
 import TasksSummary from '../components/TasksSummary'
 import CreateProjectDialog from '../components/CreateProjectDialog'
 import NotificationsCard from '../components/NotificationsCard'
+import DatasetsSection from '../components/DatasetsSection'
 import api from '../configs/api'
 
 const Dashboard = () => {
@@ -79,6 +80,8 @@ const Dashboard = () => {
             ) : (
                 <>
                     <StatsGrid />
+
+                    <DatasetsSection />
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
                         <div className="lg:col-span-2 space-y-6 sm:space-y-8">

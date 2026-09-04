@@ -21,6 +21,7 @@ const Submission = lazy(() => import('./pages/Submission'))
 const AttendanceImageManager = lazy(() => import('./pages/AttendanceImageManager'))
 const Calendar = lazy(() => import('./pages/Calendar'))
 const CandidateTeams = lazy(() => import('./pages/CandidateTeams'))
+const DatasetStorage = lazy(() => import('./pages/DatasetStorage'))
 const TermsNDA = lazy(() => import('./pages/TermsNDA'))
 const TermsConditions = lazy(() => import('./pages/TermsConditions'))
 
@@ -59,6 +60,7 @@ const App = () => {
                     <Route path='attendance-images' element={<Suspense fallback={<PageFallback />}><AttendanceImageManager /></Suspense>} />
                     <Route path='calendar' element={<Suspense fallback={<PageFallback />}><Calendar /></Suspense>} />
                     <Route path='candidate-teams' element={<Suspense fallback={<PageFallback />}><CandidateTeams /></Suspense>} />
+                    <Route path='dataset-storage' element={<Suspense fallback={<PageFallback />}><DatasetStorage /></Suspense>} />
                     <Route path='terms-nda' element={<Suspense fallback={<PageFallback />}><TermsNDA /></Suspense>} />
                     <Route path='terms' element={<Suspense fallback={<PageFallback />}><TermsConditions /></Suspense>} />
                 </Route>

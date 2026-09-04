@@ -197,7 +197,7 @@ export default function ProjectDetail() {
                 <div className="inline-flex flex-wrap max-sm:grid grid-cols-3 gap-2 border border-zinc-200 dark:border-zinc-800 rounded overflow-hidden">
                     {[
                         { key: "tasks",       label: "Tasks",       icon: FileStackIcon   },
-                        { key: "documents",   label: "Documents",   icon: FolderOpenIcon  },
+                        { key: "documents",   label: "Documents",   icon: FolderOpenIcon, count: project?.documents?.length || 0 },
                         { key: "description", label: "Description", icon: FileIcon        },
                         { key: "calendar",    label: "Calendar",    icon: CalendarIcon    },
                         { key: "analytics",   label: "Analytics",   icon: BarChart3Icon   },
@@ -213,6 +213,15 @@ export default function ProjectDetail() {
                         >
                             <tabItem.icon className="size-3.5" />
                             {tabItem.label}
+                            {tabItem.count > 0 && (
+                                <span className={`ml-0.5 min-w-[1.1rem] text-[10px] font-bold px-1 py-0.5 rounded-full leading-none text-center ${
+                                    activeTab === tabItem.key
+                                        ? "bg-blue-600 text-white"
+                                        : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300"
+                                }`}>
+                                    {tabItem.count}
+                                </span>
+                            )}
                         </button>
                     ))}
                 </div>
